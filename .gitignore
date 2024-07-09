@@ -1,0 +1,8 @@
+node_modules/
+venv/
+server/
+servers/
+jar/
+db.sqlite3
+*.zip
+__pycache__/
