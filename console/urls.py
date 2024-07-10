@@ -8,6 +8,6 @@ urlpatterns = [
     path('force_stop_server/<int:id>', views.force_stop_server, name='force_stop_server'),
     path('view_logs/<int:id>', views.view_logs, name='view_logs'),
     path('send_command/<int:id>', views.send_command, name='send_command'),
-    path('stats/<int:id>', views.get_server_stats_v2, name='get_server_stats'),
+    path('stats/<int:id>', views.get_server_stats, name='get_server_stats'),
 
 ]

@@ -33,27 +33,9 @@
     </div>
 
     <script>
-        const stats_job = setInterval(get_stats_v2, 2500);
+        const stats_job = setInterval(get_stats, 2500);
         const server_is_on = "{{server_running}}" == "True" ? true : false;
 
-        function get_stats_v2() {
-            if (server_is_on) {
-                fetch("{% url 'get_server_stats' id=server.id %}")
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        document.getElementById('stats').innerHTML = `
-                            <p><strong>Uso de CPU:</strong> ${data.cpu_usage}%</p>
-                            <p><strong>Uso de Memória:</strong> ${data.memory_usage.toFixed(2)} MB</p>
-                            <p><strong>Memória Total:</strong> ${data.total_memory} MB</p>
-                            <p><strong>Memória em Uso:</strong> ${data.used_memory} MB</p>
-                        `;
-                    } else {
-                        document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
-                    }
-                });
-            }else{clearInterval(stats_job);}
-    }
         function get_stats() {
             if (server_is_on) {
                 fetch("{% url 'get_server_stats' id=server.id %}")
@@ -61,10 +43,25 @@
                 .then(data => {
                     if (data.status === 'success') {
                         document.getElementById('stats').innerHTML = `
-                            <p><strong>Uso de CPU:</strong> ${data.cpu_usage}%</p>
-                            <p><strong>Uso de Memória:</strong> ${data.memory_usage.toFixed(2)} MB</p>
-                            <p><strong>Memória Total:</strong> ${data.total_memory.toFixed(2)} MB</p>
-                            <p><strong>Memória em Uso:</strong> ${data.used_memory.toFixed(2)} MB</p>
+                        <div>
+                            <strong>Uso Total da Memória:</strong>
+                            <div style="width: 400px; background-color: #e3e3e3; border-radius: 8px;">
+                                <div style="text-align: center ;width: ${(data.used_memory/data.total_memory*100).toFixed(1)}%; background-color: aqua; border-radius: 8px; font-weight: bold;">
+                                    ${(data.used_memory/data.total_memory*100).toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <strong>Uso Total da CPU:</strong>
+                            <div style="width: 400px; background-color: #e3e3e3; border-radius: 8px;">
+                                <div style="text-align: center ;width: ${data.total_cpu_usage}%; background-color: aqua; border-radius: 8px; font-weight: bold;">
+                                    ${data.total_cpu_usage}%
+                                </div>
+                            </div>
+                        </div>
+                        <br/>
+                        <p><strong>Memória Total:</strong> ${data.total_memory.toFixed(2)} MB</p>
+                        <p><strong>Memória em Uso:</strong> ${data.used_memory.toFixed(2)} MB</p>
                         `;
                     } else {
                         document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
