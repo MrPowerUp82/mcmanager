@@ -24,7 +24,7 @@ def is_server_running(id):
             pid = int(f.read().strip())
             try:
                 os.kill(pid, 0)
-                print("PID: ", pid)
+                # print("PID: ", pid)
                 return True
             except OSError:
                 pass
