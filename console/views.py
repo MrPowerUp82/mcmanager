@@ -1,5 +1,5 @@
 import subprocess
-import os, pty
+import os, pty, psutil
 from django.http import JsonResponse, HttpRequest
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
@@ -22,9 +22,9 @@ def is_server_running(id):
     if os.path.exists(SERVER_PID_FILE):
         with open(SERVER_PID_FILE, 'r') as f:
             pid = int(f.read().strip())
-            print("PID: ", pid)
             try:
                 os.kill(pid, 0)
+                print("PID: ", pid)
                 return True
             except OSError:
                 pass
@@ -38,7 +38,7 @@ def index(request, id):
 
 def start_server(request, id):
     server = Server.objects.get(id=id)
-    SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xmx{server.memory_limit}M -jar {server.jar} --nogui --port {server.port}"
+    SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xmx{server.memory_limit}M -jar {server.jar} --nogui"
     SERVER_DIRECTORY = os.path.join(settings.BASE_DIR, 'servers', f'server_{server.id}')
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
@@ -116,6 +116,69 @@ def send_command(request, id):
                 return JsonResponse({'status': 'error', 'message': str(e)})
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})
     return JsonResponse({'status': 'failed', 'message': 'Invalid request method'})
+
+def get_server_stats_v2(request, id):
+    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
+    if is_server_running(id):
+        try:
+            with open(SERVER_PID_FILE, 'r') as f:
+                pid = int(f.read().strip())
+                
+            # Comando para obter uso de CPU do processo
+            cpu_command = f"ps -p {pid} -o %cpu"
+            cpu_usage = subprocess.check_output(cpu_command, shell=True).decode('utf-8').split('\n')[1].strip()
+
+            # Comando para obter uso de memória do processo
+            mem_command = f"ps -p {pid} -o rss"
+            mem_usage = subprocess.check_output(mem_command, shell=True).decode('utf-8').split('\n')[1].strip()
+            mem_usage = int(mem_usage) / 1024  # Convertendo de KB para MB
+
+            # Comando para obter uso de memória total e usada do sistema
+            mem_total_command = "free -m | awk '/Mem:/ {print $2}'"
+            mem_total = subprocess.check_output(mem_total_command, shell=True).decode('utf-8').strip()
+
+            mem_used_command = "free -m | awk '/Mem:/ {print $3}'"
+            mem_used = subprocess.check_output(mem_used_command, shell=True).decode('utf-8').strip()
+
+            return JsonResponse({
+                'status': 'success',
+                'cpu_usage': cpu_usage,
+                'memory_usage': mem_usage,
+                'total_memory': mem_total,
+                'used_memory': mem_used,
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+
+def get_server_stats(request, id):
+    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
+    if is_server_running(id):
+        with open(SERVER_PID_FILE, 'r') as f:
+            pid = int(f.read().strip())
+            try:
+                process = psutil.Process(pid)
+            
+                # Vamos coletar o uso de CPU em um intervalo mais longo para maior precisão
+                cpu_usage = process.cpu_percent(interval=1)
+                memory_info = process.memory_info()
+                memory_usage = memory_info.rss / (1024 * 1024)  # Convertendo para MB
+
+                # Coletando também o uso de memória virtual
+                virtual_memory = psutil.virtual_memory()
+                total_memory = virtual_memory.total / (1024 * 1024)  # Convertendo para MB
+                used_memory = virtual_memory.used / (1024 * 1024)  # Convertendo para MB
+
+                return JsonResponse({
+                    'status': 'success',
+                    'cpu_usage': cpu_usage,
+                    'memory_usage': memory_usage,
+                    'total_memory': total_memory,
+                    'used_memory': used_memory,
+                })
+            except psutil.NoSuchProcess:
+                return JsonResponse({'status': 'error', 'message': 'Process not found'})
+    return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
 def home(request: HttpRequest):
     ctx = {

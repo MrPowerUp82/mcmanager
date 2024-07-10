@@ -20,6 +20,7 @@
             <button onclick="stopServer()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">Stop Server</button>
             <button onclick="forceStopServer()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">Force Stop Server</button>
             <button onclick="viewLogs()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2">View Logs</button>
+            <!-- <button onclick="get_stats()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Ver Estatísticas</button> -->
         </div>
         <form id="command-form" method="post" action="{% url 'send_command' id=server.id %}" class="mb-4">
             {% csrf_token %}
@@ -28,8 +29,50 @@
         </form>
         <div id="result" class="mb-4"></div>
         <div id="logs" class="bg-white p-4 border rounded shadow-md" style="white-space: pre-wrap;"></div>
+        <div id="stats" class="mt-4"></div>
     </div>
+
     <script>
+        const stats_job = setInterval(get_stats_v2, 2500);
+        const server_is_on = "{{server_running}}" == "True" ? true : false;
+
+        function get_stats_v2() {
+            if (server_is_on) {
+                fetch("{% url 'get_server_stats' id=server.id %}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        document.getElementById('stats').innerHTML = `
+                            <p><strong>Uso de CPU:</strong> ${data.cpu_usage}%</p>
+                            <p><strong>Uso de Memória:</strong> ${data.memory_usage.toFixed(2)} MB</p>
+                            <p><strong>Memória Total:</strong> ${data.total_memory} MB</p>
+                            <p><strong>Memória em Uso:</strong> ${data.used_memory} MB</p>
+                        `;
+                    } else {
+                        document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
+                    }
+                });
+            }else{clearInterval(stats_job);}
+    }
+        function get_stats() {
+            if (server_is_on) {
+                fetch("{% url 'get_server_stats' id=server.id %}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        document.getElementById('stats').innerHTML = `
+                            <p><strong>Uso de CPU:</strong> ${data.cpu_usage}%</p>
+                            <p><strong>Uso de Memória:</strong> ${data.memory_usage.toFixed(2)} MB</p>
+                            <p><strong>Memória Total:</strong> ${data.total_memory.toFixed(2)} MB</p>
+                            <p><strong>Memória em Uso:</strong> ${data.used_memory.toFixed(2)} MB</p>
+                        `;
+                    } else {
+                        document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
+                    }
+                });
+            }else{clearInterval(stats_job);}
+        }
+
         function startServer() {
             fetch("{% url 'start_server' id=server.id %}")
             .then(response => response.json())
