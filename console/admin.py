@@ -2,11 +2,14 @@ from django.contrib import admin
 from .models import Server, Type
 
 
-admin.site.register(Server)
-class TypeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'jar', 'port')
+@admin.register(Server)
+class ServerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'port', 'type', 'status')
+    exclude = ('jar',)
+    search_fields = ('name', 'port', 'type')
+    list_filter = ('type','status')
 
-admin.site.register(Type)
+@admin.register(Type)
 class TypeAdmin(admin.ModelAdmin):
     list_display = ('name',)
-# Register your models here.
+    search_fields = ('name',)

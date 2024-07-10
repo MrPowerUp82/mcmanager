@@ -33,8 +33,11 @@
     </div>
 
     <script>
-        const stats_job = setInterval(get_stats, 2500);
         const server_is_on = "{{server_running}}" == "True" ? true : false;
+        if (server_is_on) {
+            var stats_job = setInterval(get_stats, 2500);
+            var log_job = setInterval(viewLogs, 2500);
+        }
         const memory_limit = parseFloat("{{server.memory_limit}}");
 
         function get_stats() {
@@ -86,7 +89,10 @@
                         document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
                     }
                 });
-            }else{clearInterval(stats_job);}
+            }else{
+                clearInterval(stats_job);
+                clearInterval(log_job);
+            }
         }
 
         function startServer() {
