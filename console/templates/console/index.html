@@ -7,9 +7,16 @@
     <title>Minecraft Server Console</title>
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <link href="{% static 'css/tailwind.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet" />
+    <link href="{% static 'css/font-awesome.min.css' %}" rel="stylesheet" />
 </head>
 <body class="bg-gray-100 p-6">
     <div class="container mx-auto">
+        <a href="{% url 'home' %}">
+            <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                <i class="fa fa-arrow-left" aria-hidden="true"></i>
+            </button>
+        </a>
         <h1 class="text-3xl font-bold mb-4">Server: {{server.name}} {% if server.status %}
             (ON)
           {% else %}
@@ -31,6 +38,7 @@
         <div id="logs" class="bg-white p-4 border rounded shadow-md" style="white-space: pre-wrap;"></div>
         <div id="stats" class="mt-4"></div>
     </div>
+    <script type="text/javascript" src="{% static 'js/toastify-js.js' %}"></script>
 
     <script>
         const server_is_on = "{{server_running}}" == "True" ? true : false;
@@ -39,6 +47,23 @@
             var log_job = setInterval(viewLogs, 2500);
         }
         const memory_limit = parseFloat("{{server.memory_limit}}");
+
+        const create_toast = (message, bgColor, textColor) => {
+            Toastify({
+            text: message,
+            duration: 4000,
+            newWindow: true,
+            close: true,
+            gravity: "top",
+            position: "right",
+            stopOnFocus: true,
+            style: {
+                background: bgColor,
+                color: textColor,
+            },
+            // onClick: function () {},
+            }).showToast();
+        }
 
         function get_stats() {
             if (server_is_on) {
@@ -99,7 +124,8 @@
             fetch("{% url 'start_server' id=server.id %}")
             .then(response => response.json())
             .then(data => {
-                alert(data.message);
+                // alert(data.message);
+                create_toast(data.message, 'green', 'white');
                 if (data.status === 'success') {
                     location.reload();
                 }
@@ -110,7 +136,8 @@
             fetch("{% url 'stop_server' id=server.id %}")
             .then(response => response.json())
             .then(data => {
-                alert(data.message);
+                // alert(data.message);
+                create_toast(data.message, 'red', 'white');
                 if (data.status === 'success') {
                     location.reload();
                 }
@@ -121,7 +148,8 @@
             fetch("{% url 'force_stop_server' id=server.id %}")
             .then(response => response.json())
             .then(data => {
-                alert(data.message);
+                // alert(data.message);
+                create_toast(data.message, 'red', 'white');
                 if (data.status === 'success') {
                     location.reload();
                 }
@@ -135,7 +163,8 @@
                 if (data.status === 'success') {
                     document.getElementById('logs').innerText = data.logs;
                 } else {
-                    alert(data.message);
+                    // alert(data.message);
+                    create_toast(data.message, 'red', 'white');
                 }
             });
         }
@@ -152,10 +181,12 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert(data.message);
+                // alert(data.message);
+                create_toast(data.message, 'green', 'white');
                 document.getElementById('result').innerText = data.message;
             }).catch(error => {
-                alert('An error occurred');
+                // alert('An error occurred');
+                create_toast('An error occurred', 'red', 'white');
                 document.getElementById('result').innerText = String(error);
             }).finally(() => {
                 document.getElementById('command-form').reset();
