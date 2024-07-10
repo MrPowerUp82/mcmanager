@@ -4,20 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Console</title>
+    <title>Minecraft Server Console</title>
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <link href="{% static 'css/tailwind.css' %}" rel="stylesheet">
 </head>
 <body class="bg-gray-100 p-6">
     <div class="container mx-auto">
-        <h1 class="text-3xl font-bold mb-4">Minecraft Server Console</h1>
+        <h1 class="text-3xl font-bold mb-4">Server: {{server.name}} {% if server.status %}
+            (ON)
+          {% else %}
+            (OFF)
+          {% endif %}</h1>
         <div class="mb-4">
             <button onclick="startServer()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Start Server</button>
             <button onclick="stopServer()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">Stop Server</button>
             <button onclick="forceStopServer()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">Force Stop Server</button>
             <button onclick="viewLogs()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2">View Logs</button>
         </div>
-        <form id="command-form" method="post" action="{% url 'send_command' %}" class="mb-4">
+        <form id="command-form" method="post" action="{% url 'send_command' id=server.id %}" class="mb-4">
             {% csrf_token %}
             <input type="text" name="command" placeholder="Enter command" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
             <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">Send</button>
@@ -27,7 +31,7 @@
     </div>
     <script>
         function startServer() {
-            fetch("{% url 'start_server' %}")
+            fetch("{% url 'start_server' id=server.id %}")
             .then(response => response.json())
             .then(data => {
                 alert(data.message);
@@ -38,7 +42,7 @@
         }
 
         function stopServer() {
-            fetch("{% url 'stop_server' %}")
+            fetch("{% url 'stop_server' id=server.id %}")
             .then(response => response.json())
             .then(data => {
                 alert(data.message);
@@ -49,7 +53,7 @@
         }
 
         function forceStopServer() {
-            fetch("{% url 'force_stop_server' %}")
+            fetch("{% url 'force_stop_server' id=server.id %}")
             .then(response => response.json())
             .then(data => {
                 alert(data.message);
@@ -60,7 +64,7 @@
         }
 
         function viewLogs() {
-            fetch("{% url 'view_logs' %}")
+            fetch("{% url 'view_logs' id=server.id %}")
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
@@ -74,7 +78,7 @@
         document.getElementById('command-form').onsubmit = function(event) {
             event.preventDefault();
             var formData = new FormData(this);
-            fetch("{% url 'send_command' %}", {
+            fetch("{% url 'send_command' id=server.id %}", {
                 method: 'POST',
                 body: formData,
                 headers: {

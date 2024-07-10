@@ -1,0 +1,48 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minecraft Console</title>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{% static 'img/favicon.ico' %}"
+    />
+    <link href="{% static 'css/tailwind.css' %}" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100 p-6">
+    <div class="container mx-auto">
+      <h1 class="text-3xl font-bold mb-4">Minecraft Servers</h1>
+      <form action="{% url 'home' %}" method="post">
+        {% csrf_token %}
+        <select
+          type="text"
+          name="server_id"
+          id="server_id"
+          placeholder="Enter command"
+          required
+          class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        >
+        <option value="">Escolha um server</option>
+          {% for server in servers %}
+          <option value="{{ server.id }}">{{ server.name }} {% if server.status %}
+            (ON)
+          {% else %}
+            (OFF)
+          {% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <button
+          type="submit"
+          class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2"
+        >
+          Abrir Console
+        </button>
+      </form>
+    </div>
+    <script></script>
+  </body>
+</html>
