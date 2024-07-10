@@ -38,7 +38,7 @@ def index(request, id):
 
 def start_server(request, id):
     server = Server.objects.get(id=id)
-    SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xms{server.memory_limit}M -Xmx{server.memory_limit}M -jar {server.jar} --nogui"
+    SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xms{server.memory_limit}M -Xmx{server.memory_limit}M -jar {server.jar}"
     SERVER_DIRECTORY = os.path.join(settings.BASE_DIR, 'servers', f'server_{server.id}')
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
@@ -94,7 +94,7 @@ def view_logs(request, id):
     server = Server.objects.get(id=id)
     SERVER_DIRECTORY = os.path.join(settings.BASE_DIR, 'servers', f'server_{server.id}')
     if os.path.exists(os.path.join(SERVER_DIRECTORY, LOG_FILE)):
-        with open(os.path.join(SERVER_DIRECTORY, LOG_FILE), 'r') as f:
+        with open(os.path.join(SERVER_DIRECTORY, LOG_FILE), 'r', encoding="utf8", errors='ignore') as f:
             logs = f.read()
         return JsonResponse({'status': 'success', 'logs': logs})
     else:
