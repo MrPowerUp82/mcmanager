@@ -35,6 +35,7 @@
     <script>
         const stats_job = setInterval(get_stats, 2500);
         const server_is_on = "{{server_running}}" == "True" ? true : false;
+        const memory_limit = parseFloat("{{server.memory_limit}}");
 
         function get_stats() {
             if (server_is_on) {
@@ -43,6 +44,22 @@
                 .then(data => {
                     if (data.status === 'success') {
                         document.getElementById('stats').innerHTML = `
+                        <div>
+                            <strong>Uso da CPU:</strong>
+                            <div style="width: 400px; background-color: #e3e3e3; border-radius: 8px;">
+                                <div style="text-align: center ;width: ${data.cpu_usage}%; background-color: aqua; border-radius: 8px; font-weight: bold;">
+                                    ${data.cpu_usage}%
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <strong>Uso da Memória Disponível:</strong>
+                            <div style="width: 400px; background-color: #e3e3e3; border-radius: 8px;">
+                                <div style="text-align: center ;width: ${(data.memory_usage/memory_limit*100).toFixed(1)}%; background-color: aqua; border-radius: 8px; font-weight: bold;">
+                                    ${(data.memory_usage/memory_limit*100).toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
                         <div>
                             <strong>Uso Total da Memória:</strong>
                             <div style="width: 400px; background-color: #e3e3e3; border-radius: 8px;">
@@ -60,8 +77,10 @@
                             </div>
                         </div>
                         <br/>
+                        <p><strong>Memória Disponível:</strong> ${memory_limit.toFixed(2)} MB</p>
+                        <p><strong>Memória em Uso:</strong> ${data.memory_usage.toFixed(2)} MB</p>
                         <p><strong>Memória Total:</strong> ${data.total_memory.toFixed(2)} MB</p>
-                        <p><strong>Memória em Uso:</strong> ${data.used_memory.toFixed(2)} MB</p>
+                        <p><strong>Memória Total em Uso:</strong> ${data.used_memory.toFixed(2)} MB</p>
                         `;
                     } else {
                         document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
