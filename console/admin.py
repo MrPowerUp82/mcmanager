@@ -13,7 +13,7 @@ class ServerAdmin(admin.ModelAdmin):
     list_filter = ('type','status')
     readonly_fields = ('status',)
 
-    def get_form(self, request: Any, obj: Any | None = ..., change: bool = ..., **kwargs: Any) -> Any:
+    def get_form(self, request, obj=..., change = ..., **kwargs) -> Any:
         if obj is None:
             self.exclude = ('jar','server_properties')
             self.readonly_fields = ('status',)
