@@ -15,7 +15,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Type',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('id', models.BigAutoField(auto_created=True,
+                 primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=100)),
                 ('dependencies', models.JSONField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
@@ -25,16 +26,20 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Server',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('id', models.BigAutoField(auto_created=True,
+                 primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=100)),
-                ('jar_template', models.CharField(choices=[('custom.jar', 'custom.jar'), ('minecraft_server.1.7.10.jar', 'minecraft_server.1.7.10.jar')], max_length=100)),
+                ('jar_template', models.CharField(choices=[('custom.jar', 'custom.jar'), (
+                    'minecraft_server.1.7.10.jar', 'minecraft_server.1.7.10.jar')], max_length=100)),
                 ('jar', models.CharField(blank=True, max_length=100, null=True)),
                 ('ip', models.GenericIPAddressField()),
                 ('port', models.IntegerField()),
-                ('memory_limit', models.IntegerField(default=1024, verbose_name='Memory Limit (MB)')),
+                ('memory_limit', models.IntegerField(
+                    default=1024, verbose_name='Memory Limit (MB)')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='servers', to='console.type')),
+                ('type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,
+                 related_name='servers', to='console.type')),
             ],
         ),
     ]

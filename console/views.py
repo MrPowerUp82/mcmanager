@@ -1,5 +1,7 @@
 import subprocess
-import os, pty, psutil
+import os
+import pty
+import psutil
 from django.http import JsonResponse, HttpRequest
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
@@ -9,6 +11,7 @@ from .models import Server
 
 LOG_FILE = 'logs/latest.log'
 
+
 def is_server_running_v2(id):
     server = Server.objects.get(id=id)
     result = os.popen(f"pgrep -f {server.jar}").read().strip()
@@ -16,6 +19,7 @@ def is_server_running_v2(id):
         print("PID: ", result)
         return True
     return False
+
 
 def is_server_running(id):
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
@@ -30,16 +34,19 @@ def is_server_running(id):
                 pass
     return False
 
+
 @staff_member_required
 def index(request, id):
     server = Server.objects.get(id=id)
     server_running = is_server_running(id)
     return render(request, 'console/index.html', {'server_running': server_running, 'server': server})
 
+
 def start_server(request, id):
     server = Server.objects.get(id=id)
     SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xms{server.memory_limit}M -Xmx{server.memory_limit}M -jar {server.jar}"
-    SERVER_DIRECTORY = os.path.join(settings.BASE_DIR, 'servers', f'server_{server.id}')
+    SERVER_DIRECTORY = os.path.join(
+        settings.BASE_DIR, 'servers', f'server_{server.id}')
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
     if not is_server_running(id):
@@ -56,6 +63,7 @@ def start_server(request, id):
         return JsonResponse({'status': 'success', 'message': 'Server started'})
     else:
         return JsonResponse({'status': 'error', 'message': 'Server is already running'})
+
 
 def force_stop_server(request, id):
     server = Server.objects.get(id=id)
@@ -74,6 +82,7 @@ def force_stop_server(request, id):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
 
+
 def stop_server(request, id):
     server = Server.objects.get(id=id)
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
@@ -90,15 +99,18 @@ def stop_server(request, id):
     else:
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
+
 def view_logs(request, id):
     server = Server.objects.get(id=id)
-    SERVER_DIRECTORY = os.path.join(settings.BASE_DIR, 'servers', f'server_{server.id}')
+    SERVER_DIRECTORY = os.path.join(
+        settings.BASE_DIR, 'servers', f'server_{server.id}')
     if os.path.exists(os.path.join(SERVER_DIRECTORY, LOG_FILE)):
         with open(os.path.join(SERVER_DIRECTORY, LOG_FILE), 'r', encoding="utf8", errors='ignore') as f:
             logs = f.read()
         return JsonResponse({'status': 'success', 'logs': logs})
     else:
         return JsonResponse({'status': 'error', 'message': 'Log file not found'})
+
 
 @csrf_exempt
 @staff_member_required
@@ -117,6 +129,7 @@ def send_command(request, id):
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})
     return JsonResponse({'status': 'failed', 'message': 'Invalid request method'})
 
+
 def get_server_stats(request, id):
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     if is_server_running(id):
@@ -124,7 +137,7 @@ def get_server_stats(request, id):
             pid = int(f.read().strip())
             try:
                 process = psutil.Process(pid)
-            
+
                 cpu_usage = process.cpu_percent(interval=1)
                 memory_info = process.memory_info()
                 memory_usage = memory_info.rss / (1024 * 1024)
@@ -145,6 +158,7 @@ def get_server_stats(request, id):
             except psutil.NoSuchProcess:
                 return JsonResponse({'status': 'error', 'message': 'Process not found'})
     return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+
 
 def home(request: HttpRequest):
     ctx = {
