@@ -20,11 +20,12 @@ class Command(BaseCommand):
         with open(settings_path, 'r') as file:
             settings_content = file.read()
         new_settings_content = re.sub(
-            r"^SECRET_KEY = ['\"].*['\"]", 
-            f"SECRET_KEY = '{secret_key}'", 
-            settings_content, 
+            r"^SECRET_KEY = ['\"].*['\"]",
+            f"SECRET_KEY = '{secret_key}'",
+            settings_content,
             flags=re.MULTILINE
         )
         with open(settings_path, 'w') as file:
             file.write(new_settings_content)
-        self.stdout.write(self.style.SUCCESS(f'Nova SECRET_KEY gerada e atualizada no settings.py: {secret_key}'))
+        self.stdout.write(self.style.SUCCESS(
+            f'Nova SECRET_KEY gerada e atualizada no settings.py: {secret_key}'))
