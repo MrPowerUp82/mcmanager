@@ -1,77 +1,102 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Server Console</title>
-    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
-    <link href="{% static 'css/tailwind.css' %}" rel="stylesheet">
-    <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet" />
-    <link href="{% static 'css/font-awesome.min.css' %}" rel="stylesheet" />
-</head>
-<body class="bg-gray-100 p-6">
-    <div class="container mx-auto">
-        <a href="{% url 'home' %}">
-            <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                <i class="fa fa-arrow-left" aria-hidden="true"></i>
-            </button>
-        </a>
-        <h1 class="text-3xl font-bold mb-4">Server: {{server.name}} {% if server.status %}
-            (ON)
-          {% else %}
-            (OFF)
-          {% endif %}</h1>
-        <div class="mb-4">
-            <button onclick="startServer()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Start Server</button>
-            <button onclick="stopServer()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">Stop Server</button>
-            <button onclick="forceStopServer()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">Force Stop Server</button>
-            <button onclick="viewLogs()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2">View Logs</button>
-            <!-- <button onclick="get_stats()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Ver Estatísticas</button> -->
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Minecraft Server Console</title>
+        <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+        <link href="{% static 'css/tailwind.css' %}" rel="stylesheet">
+        <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet" />
+        <link href="{% static 'css/font-awesome.min.css' %}" rel="stylesheet" />
+    </head>
+    <body class="bg-gray-100 p-6">
+        <div class="container mx-auto">
+            <a href="{% url 'home' %}">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fa fa-arrow-left" aria-hidden="true"></i>
+                </button>
+            </a>
+            <h1 class="text-3xl font-bold mb-4">
+                Server: {{ server.name }}
+                {% if server.status %}
+                    (ON)
+                {% else %}
+                    (OFF)
+                {% endif %}
+            </h1>
+            <div class="mb-4">
+                <button onclick="startServer()"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Start Server
+                </button>
+                <button onclick="stopServer()"
+                        class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">
+                    Stop Server
+                </button>
+                <button onclick="forceStopServer()"
+                        class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-2">
+                    Force Stop Server
+                </button>
+                <button onclick="viewLogs()"
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2">
+                    View Logs
+                </button>
+                <!-- <button onclick="get_stats()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Ver Estatísticas</button> -->
+            </div>
+            <form id="command-form"
+                  method="post"
+                  action="{% url 'send_command' id=server.id %}"
+                  class="mb-4">
+                {% csrf_token %}
+                <input type="text"
+                       name="command"
+                       placeholder="Enter command"
+                       required
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">Send</button>
+            </form>
+            <div id="result" class="mb-4"></div>
+            <div id="logs"
+                 class="bg-white p-4 border rounded shadow-md overflow-y-auto overflow-x-hidden"
+                 style="white-space: pre-wrap;
+                        max-height: 400px"></div>
+            <div id="stats" class="mt-4"></div>
         </div>
-        <form id="command-form" method="post" action="{% url 'send_command' id=server.id %}" class="mb-4">
-            {% csrf_token %}
-            <input type="text" name="command" placeholder="Enter command" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">Send</button>
-        </form>
-        <div id="result" class="mb-4"></div>
-        <div id="logs" class="bg-white p-4 border rounded shadow-md overflow-y-auto overflow-x-hidden" style="white-space: pre-wrap; max-height: 400px;"></div>
-        <div id="stats" class="mt-4"></div>
-    </div>
-    <script type="text/javascript" src="{% static 'js/toastify-js.js' %}"></script>
-
-    <script>
-        const server_is_on = "{{server_running}}" == "True" ? true : false;
-        if (server_is_on) {
-            var stats_job = setInterval(get_stats, 2500);
-            var log_job = setInterval(viewLogs, 2500);
-        }
-        const memory_limit = parseFloat("{{server.memory_limit}}");
-
-        const create_toast = (message, bgColor, textColor) => {
-            Toastify({
-            text: message,
-            duration: 4000,
-            newWindow: true,
-            close: true,
-            gravity: "top",
-            position: "right",
-            stopOnFocus: true,
-            style: {
-                background: bgColor,
-                color: textColor,
-            },
-            // onClick: function () {},
-            }).showToast();
-        }
-
-        function get_stats() {
+        <script type="text/javascript" src="{% static 'js/toastify-js.js' %}"></script>
+        <script>
+            const server_is_on = "{{server_running}}" == "True" ? true : false;
             if (server_is_on) {
-                fetch("{% url 'get_server_stats' id=server.id %}")
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        document.getElementById('stats').innerHTML = `
+                var stats_job = setInterval(get_stats, 2500);
+                var log_job = setInterval(viewLogs, 2500);
+            }
+            const memory_limit = parseFloat("{{server.memory_limit}}");
+
+            const create_toast = (message, bgColor, textColor) => {
+                Toastify({
+                    text: message,
+                    duration: 4000,
+                    newWindow: true,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    stopOnFocus: true,
+                    style: {
+                        background: bgColor,
+                        color: textColor,
+                    },
+                    // onClick: function () {},
+                }).showToast();
+            }
+
+            function get_stats() {
+                if (server_is_on) {
+                    fetch("{% url 'get_server_stats' id=server.id %}")
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                document.getElementById('stats').innerHTML = `
                         <div>
                             <strong>Uso da CPU:</strong>
                             <div style="width: 400px; background-color: #e3e3e3; border-radius: 8px;">
@@ -104,95 +129,95 @@
                                 </div>
                             </div>
                         </div>
-                        <br/>
+                        <br />
                         <p><strong>Memória Disponível:</strong> ${memory_limit.toFixed(2)} MB</p>
                         <p><strong>Memória em Uso:</strong> ${data.memory_usage.toFixed(2)} MB</p>
                         <p><strong>Memória Total:</strong> ${data.total_memory.toFixed(2)} MB</p>
                         <p><strong>Memória Total em Uso:</strong> ${data.used_memory.toFixed(2)} MB</p>
                         `;
-                    } else {
-                        document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
-                    }
-                });
-            }else{
-                clearInterval(stats_job);
-                clearInterval(log_job);
-            }
-        }
-
-        function startServer() {
-            fetch("{% url 'start_server' id=server.id %}")
-            .then(response => response.json())
-            .then(data => {
-                // alert(data.message);
-                create_toast(data.message, 'green', 'white');
-                if (data.status === 'success') {
-                    location.reload();
-                }
-            });
-        }
-
-        function stopServer() {
-            fetch("{% url 'stop_server' id=server.id %}")
-            .then(response => response.json())
-            .then(data => {
-                // alert(data.message);
-                create_toast(data.message, 'red', 'white');
-                if (data.status === 'success') {
-                    location.reload();
-                }
-            });
-        }
-
-        function forceStopServer() {
-            fetch("{% url 'force_stop_server' id=server.id %}")
-            .then(response => response.json())
-            .then(data => {
-                // alert(data.message);
-                create_toast(data.message, 'red', 'white');
-                if (data.status === 'success') {
-                    location.reload();
-                }
-            });
-        }
-
-        function viewLogs() {
-            fetch("{% url 'view_logs' id=server.id %}")
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('logs').innerText = data.logs;
+                            } else {
+                                document.getElementById('stats').innerHTML = `<p>${data.message}</p>`;
+                            }
+                        });
                 } else {
-                    // alert(data.message);
-                    create_toast(data.message, 'red', 'white');
+                    clearInterval(stats_job);
+                    clearInterval(log_job);
                 }
-            });
-        }
+            }
 
-        document.getElementById('command-form').onsubmit = function(event) {
-            event.preventDefault();
-            var formData = new FormData(this);
-            fetch("{% url 'send_command' id=server.id %}", {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                // alert(data.message);
-                create_toast(data.message, 'green', 'white');
-                document.getElementById('result').innerText = data.message;
-            }).catch(error => {
-                // alert('An error occurred');
-                create_toast('An error occurred', 'red', 'white');
-                document.getElementById('result').innerText = String(error);
-            }).finally(() => {
-                document.getElementById('command-form').reset();
-                viewLogs();
-            });
-        };
-    </script>
-</body>
+            function startServer() {
+                fetch("{% url 'start_server' id=server.id %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        // alert(data.message);
+                        create_toast(data.message, 'green', 'white');
+                        if (data.status === 'success') {
+                            location.reload();
+                        }
+                    });
+            }
+
+            function stopServer() {
+                fetch("{% url 'stop_server' id=server.id %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        // alert(data.message);
+                        create_toast(data.message, 'red', 'white');
+                        if (data.status === 'success') {
+                            location.reload();
+                        }
+                    });
+            }
+
+            function forceStopServer() {
+                fetch("{% url 'force_stop_server' id=server.id %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        // alert(data.message);
+                        create_toast(data.message, 'red', 'white');
+                        if (data.status === 'success') {
+                            location.reload();
+                        }
+                    });
+            }
+
+            function viewLogs() {
+                fetch("{% url 'view_logs' id=server.id %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            document.getElementById('logs').innerText = data.logs;
+                        } else {
+                            // alert(data.message);
+                            create_toast(data.message, 'red', 'white');
+                        }
+                    });
+            }
+
+            document.getElementById('command-form').onsubmit = function(event) {
+                event.preventDefault();
+                var formData = new FormData(this);
+                fetch("{% url 'send_command' id=server.id %}", {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // alert(data.message);
+                        create_toast(data.message, 'green', 'white');
+                        document.getElementById('result').innerText = data.message;
+                    }).catch(error => {
+                        // alert('An error occurred');
+                        create_toast('An error occurred', 'red', 'white');
+                        document.getElementById('result').innerText = String(error);
+                    }).finally(() => {
+                        document.getElementById('command-form').reset();
+                        viewLogs();
+                    });
+            };
+        </script>
+    </body>
 </html>
