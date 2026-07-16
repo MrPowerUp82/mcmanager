@@ -19,11 +19,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("MCMANAGER_DEBUG", "False").lower() in ("true", "1", "yes")
 
-# Determine user data directory (defaults to ~/.mcmanager, or project root in DEBUG if env is not set)
+# Determine user data directory (defaults to ~/.mcmanager, or project root in dev mode)
 if os.environ.get("MCMANAGER_DATA_DIR"):
     USER_DATA_DIR = Path(os.environ["MCMANAGER_DATA_DIR"]).resolve()
 else:
-    if DEBUG:
+    is_dev = os.environ.get("MCMANAGER_DEV", "False").lower() in ("true", "1", "yes")
+    if is_dev:
         USER_DATA_DIR = BASE_DIR
     else:
         USER_DATA_DIR = Path.home() / ".mcmanager"

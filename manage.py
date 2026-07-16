@@ -6,6 +6,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
+    os.environ.setdefault('MCMANAGER_DEV', 'True')
     os.environ.setdefault('MCMANAGER_DEBUG', 'True')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mcmanager.settings')
     try:
