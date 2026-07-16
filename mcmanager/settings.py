@@ -10,25 +10,50 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.environ.get("MCMANAGER_DEBUG", "False").lower() in ("true", "1", "yes")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
+# Determine user data directory (defaults to ~/.mcmanager, or project root in DEBUG if env is not set)
+if os.environ.get("MCMANAGER_DATA_DIR"):
+    USER_DATA_DIR = Path(os.environ["MCMANAGER_DATA_DIR"]).resolve()
+else:
+    if DEBUG:
+        USER_DATA_DIR = BASE_DIR
+    else:
+        USER_DATA_DIR = Path.home() / ".mcmanager"
+
+USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+(USER_DATA_DIR / "servers").mkdir(exist_ok=True)
+(USER_DATA_DIR / "jar").mkdir(exist_ok=True)
+(USER_DATA_DIR / "configs").mkdir(exist_ok=True)
+
+JAR_DIR = USER_DATA_DIR / 'jar'
+SERVERS_DIR = USER_DATA_DIR / 'servers'
+CONFIGS_DIR = USER_DATA_DIR / 'configs'
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-gvh8grailj*xc_n-ywejqp48h1akwjwp^6((iprn*r_33^7%$y'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY_FILE = USER_DATA_DIR / '.secret_key'
+if SECRET_KEY_FILE.exists():
+    SECRET_KEY = SECRET_KEY_FILE.read_text(encoding="utf-8").strip()
+else:
+    from django.utils.crypto import get_random_string
+    SECRET_KEY = get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)')
+    try:
+        SECRET_KEY_FILE.write_text(SECRET_KEY, encoding="utf-8")
+    except Exception:
+        pass
 
 if DEBUG:
     ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '148.113.171.183']
 else:
-    ALLOWED_HOSTS = ['148.113.171.183']
+    allowed_hosts_env = os.environ.get("MCMANAGER_ALLOWED_HOSTS", "*")
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
 
 # Application definition
 
@@ -41,11 +66,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # apps
-    "console.apps.ConsoleConfig",
+    "mcmanager.console.apps.ConsoleConfig",
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -81,7 +107,7 @@ WSGI_APPLICATION = 'mcmanager.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': USER_DATA_DIR / 'db.sqlite3',
     }
 }
 
@@ -120,15 +146,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
-STATIC_URL = 'static/'
-
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+STATIC_ROOT = USER_DATA_DIR / 'staticfiles'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-JAVA_BIN_PATH = "/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
+JAVA_BIN_PATH = os.environ.get("MCMANAGER_JAVA_BIN", "/usr/lib/jvm/java-8-openjdk-amd64/bin/java")
+

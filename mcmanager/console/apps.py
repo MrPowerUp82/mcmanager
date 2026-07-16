@@ -3,7 +3,7 @@ from django.apps import AppConfig
 
 class ConsoleConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'console'
+    name = 'mcmanager.console'
 
     def ready(self) -> None:
         try:

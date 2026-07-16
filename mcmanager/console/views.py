@@ -1,6 +1,9 @@
 import subprocess
 import os
-import pty
+try:
+    import pty
+except ImportError:
+    pty = None
 import psutil
 from django.http import JsonResponse, HttpRequest
 from django.shortcuts import render, redirect
@@ -43,10 +46,12 @@ def index(request, id):
 
 
 def start_server(request, id):
+    if pty is None:
+        return JsonResponse({'status': 'error', 'message': 'PTY is not supported on this platform (Linux required)'})
     server = Server.objects.get(id=id)
     SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xms{server.memory_limit}M -Xmx{server.memory_limit}M -jar {server.jar}"
-    SERVER_DIRECTORY = os.path.join(
-        settings.BASE_DIR, 'servers', f'server_{server.id}')
+    servers_dir = getattr(settings, 'SERVERS_DIR', os.path.join(settings.BASE_DIR, 'servers'))
+    SERVER_DIRECTORY = os.path.join(servers_dir, f'server_{server.id}')
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
     if not is_server_running(id):
@@ -102,8 +107,8 @@ def stop_server(request, id):
 
 def view_logs(request, id):
     server = Server.objects.get(id=id)
-    SERVER_DIRECTORY = os.path.join(
-        settings.BASE_DIR, 'servers', f'server_{server.id}')
+    servers_dir = getattr(settings, 'SERVERS_DIR', os.path.join(settings.BASE_DIR, 'servers'))
+    SERVER_DIRECTORY = os.path.join(servers_dir, f'server_{server.id}')
     if os.path.exists(os.path.join(SERVER_DIRECTORY, LOG_FILE)):
         with open(os.path.join(SERVER_DIRECTORY, LOG_FILE), 'r', encoding="utf8", errors='ignore') as f:
             logs = f.read()

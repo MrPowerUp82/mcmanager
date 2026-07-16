@@ -6,3 +6,7 @@ jar/
 db.sqlite3
 *.zip
 __pycache__/
+.venv/
+dist/
+build/
+*.egg-info/
