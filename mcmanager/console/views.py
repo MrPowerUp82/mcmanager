@@ -15,15 +15,6 @@ from .models import Server
 LOG_FILE = 'logs/latest.log'
 
 
-def is_server_running_v2(id):
-    server = Server.objects.get(id=id)
-    result = os.popen(f"pgrep -f {server.jar}").read().strip()
-    if result:
-        print("PID: ", result)
-        return True
-    return False
-
-
 def is_server_running(id):
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     if os.path.exists(SERVER_PID_FILE):
@@ -75,12 +66,18 @@ def force_stop_server(request, id):
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
     try:
-        os.popen(f"pkill -f {server.jar}")
-        try:
-            os.remove(SERVER_PID_FILE)
-            os.remove(SERVER_PTY_FILE)
-        except FileNotFoundError:
-            pass
+        if os.path.exists(SERVER_PID_FILE):
+            with open(SERVER_PID_FILE, 'r') as f:
+                pid = int(f.read().strip())
+            try:
+                psutil.Process(pid).kill()
+            except psutil.NoSuchProcess:
+                pass
+        for path in (SERVER_PID_FILE, SERVER_PTY_FILE):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
         server.status = False
         server.save()
         return JsonResponse({'status': 'success', 'message': 'Server stopped'})
