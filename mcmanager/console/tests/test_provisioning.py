@@ -53,6 +53,25 @@ def test_create_server_files_provisions_new_server(server_type, jar_dir, configs
 
 
 @pytest.mark.django_db
+def test_create_server_files_generates_rcon_credentials(server_type, jar_dir, configs_dir, servers_dir):
+    server = Server.objects.create(
+        name="Test", jar_template="paper.jar", port=25566, type=server_type
+    )
+
+    provisioning.create_server_files(server)
+
+    server.refresh_from_db()
+    server_dir = servers_dir / f"server_{server.id}"
+    properties_text = (server_dir / "server.properties").read_text(encoding="utf-8")
+    assert server.rcon_port == server.port + 10000
+    assert len(server.rcon_password) == 24
+    assert f"rcon.port={server.rcon_port}" in properties_text
+    assert f"rcon.password={server.rcon_password}" in properties_text
+    assert "enable-rcon=true" in properties_text
+    assert "rcon.bind=127.0.0.1" in properties_text
+
+
+@pytest.mark.django_db
 def test_sync_server_properties_file_writes_field_to_disk(server_type, jar_dir, configs_dir, servers_dir):
     server = Server.objects.create(
         name="Test", jar_template="paper.jar", port=25566, type=server_type
