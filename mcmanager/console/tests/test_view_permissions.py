@@ -28,7 +28,7 @@ def test_get_only_control_views_require_staff_login(client, server, url_name):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("url_name", ["start_server", "stop_server", "force_stop_server"])
+@pytest.mark.parametrize("url_name", ["start_server", "stop_server", "force_stop_server", "send_command"])
 def test_mutating_views_require_staff_login(client, server, url_name):
     response = client.post(reverse(url_name, kwargs={"id": server.id}))
     assert response.status_code == 302
@@ -41,7 +41,7 @@ def test_home_requires_staff_login(client):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("url_name", ["start_server", "stop_server", "force_stop_server"])
+@pytest.mark.parametrize("url_name", ["start_server", "stop_server", "force_stop_server", "send_command"])
 def test_mutating_views_reject_get_from_staff_user(client, server, staff_user, url_name):
     client.force_login(staff_user)
     response = client.get(reverse(url_name, kwargs={"id": server.id}))
