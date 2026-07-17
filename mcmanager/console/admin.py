@@ -2,12 +2,14 @@ from typing import Any
 
 from django.contrib import admin
 
+from .forms import ServerForm
 from .models import Server, Type
 from .services import provisioning
 
 
 @admin.register(Server)
 class ServerAdmin(admin.ModelAdmin):
+    form = ServerForm
     list_display = ('name', 'port', 'type', 'status')
     exclude = ('jar', 'server_properties')
     search_fields = ('name', 'port', 'type')

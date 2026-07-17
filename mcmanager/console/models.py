@@ -30,7 +30,7 @@ class Type(models.Model):
 
 class Server(models.Model):
     name = models.CharField(max_length=100)
-    jar_template = models.CharField(max_length=100, choices=get_jar_files())
+    jar_template = models.CharField(max_length=100)
     jar = models.CharField(max_length=100, blank=True, null=True)
     port = models.IntegerField(default=25565)
     memory_limit = models.IntegerField("Memory Limit (MB)", default=1024)
