@@ -1,3 +1,4 @@
+import itertools
 import os
 import time
 from pathlib import Path
@@ -8,6 +9,8 @@ import pytest
 from mcmanager.console.models import Server, Type
 from mcmanager.console.services import process, provisioning
 from mcmanager.console.tests.fixtures.fake_java_binary import create_fake_java_binary
+
+_port_counter = itertools.count(25566)
 
 
 @pytest.fixture
@@ -39,7 +42,7 @@ def fake_java(settings, tmp_path):
 
 @pytest.fixture
 def server(server_type, server_dirs):
-    s = Server.objects.create(name="Test", jar_template="paper.jar", port=25566, type=server_type)
+    s = Server.objects.create(name="Test", jar_template="paper.jar", port=next(_port_counter), type=server_type)
     provisioning.create_server_files(s)
     s.refresh_from_db()
     return s
@@ -122,3 +125,36 @@ def test_get_stats_returns_cpu_and_memory(server, fake_java):
 def test_get_stats_raises_when_not_running(server):
     with pytest.raises(process.ProcessNotRunningError):
         process.get_stats(server)
+
+
+@pytest.mark.django_db
+def test_stop_sends_rcon_stop_and_waits_for_exit(server, fake_java):
+    process.start(server)
+    assert process.is_running(server) is True
+
+    process.stop(server)
+
+    assert process.is_running(server) is False
+    assert process._read_state(server) is None
+
+
+@pytest.mark.django_db
+def test_stop_raises_when_not_running(server):
+    with pytest.raises(process.ProcessNotRunningError):
+        process.stop(server)
+
+
+@pytest.mark.django_db
+def test_send_command_returns_rcon_response(server, fake_java):
+    process.start(server)
+    try:
+        response = process.send_command(server, "say hi")
+        assert "Unknown command: say hi" in response
+    finally:
+        process.force_stop(server)
+
+
+@pytest.mark.django_db
+def test_send_command_raises_when_not_running(server):
+    with pytest.raises(process.ProcessNotRunningError):
+        process.send_command(server, "say hi")

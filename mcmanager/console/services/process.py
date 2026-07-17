@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 import psutil
 from django.conf import settings
 
+from . import rcon
+
 
 class AlreadyRunningError(Exception):
     """Raised by start() when the server is already running."""
@@ -106,11 +108,23 @@ def force_stop(server):
         if pid is not None and psutil.pid_exists(pid):
             try:
                 proc = psutil.Process(pid)
-                proc.kill()
-                proc.wait(timeout=5)
+                # Kill the whole descendant tree, not just the tracked PID.
+                # A direct `java.exe` launch has no children, so this is a
+                # no-op in production. It matters whenever the tracked
+                # process is itself a launcher that spawns a real child
+                # (e.g. a `.bat` wrapper, as used by this test suite's fake
+                # Java binary on Windows): killing only the parent leaves
+                # the child running and orphaned, since Windows has no
+                # equivalent of POSIX's start_new_session-based group kill.
+                children = proc.children(recursive=True)
+                procs = children + [proc]
+                for p in procs:
+                    try:
+                        p.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+                psutil.wait_procs(procs, timeout=5)
             except psutil.NoSuchProcess:
-                pass
-            except psutil.TimeoutExpired:
                 pass
     _clear_state(server)
 
@@ -131,3 +145,32 @@ def get_stats(server):
         'used_memory': virtual_memory.used / (1024 * 1024),
         'total_cpu_usage': psutil.cpu_percent(interval=1),
     }
+
+
+STOP_TIMEOUT_SECONDS = 30
+
+
+def stop(server):
+    if not is_running(server):
+        raise ProcessNotRunningError(f'Server {server.id} is not running')
+    state = _read_state(server)
+    pid = state['pid']
+
+    rcon.execute('127.0.0.1', server.rcon_port, server.rcon_password, 'stop', timeout=rcon.DEFAULT_TIMEOUT)
+
+    try:
+        psutil.Process(pid).wait(timeout=STOP_TIMEOUT_SECONDS)
+    except psutil.TimeoutExpired as exc:
+        raise StopTimeoutError(
+            f'Server {server.id} did not stop within {STOP_TIMEOUT_SECONDS}s of the RCON stop '
+            'command; use force-stop instead'
+        ) from exc
+    except psutil.NoSuchProcess:
+        pass
+    _clear_state(server)
+
+
+def send_command(server, command):
+    if not is_running(server):
+        raise ProcessNotRunningError(f'Server {server.id} is not running')
+    return rcon.execute('127.0.0.1', server.rcon_port, server.rcon_password, command)
