@@ -1,8 +1,9 @@
 from typing import Any
+
 from django.contrib import admin
-from django.http import HttpRequest
-from django.http.response import HttpResponse
+
 from .models import Server, Type
+from .services import provisioning
 
 
 @admin.register(Server)
@@ -21,6 +22,22 @@ class ServerAdmin(admin.ModelAdmin):
             self.exclude = None
             self.readonly_fields = ('status', 'jar')
         return super().get_form(request, obj, change, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not obj.jar:
+            provisioning.create_server_files(obj)
+        else:
+            provisioning.sync_server_properties_file(obj)
+
+    def delete_model(self, request, obj):
+        provisioning.delete_server_files(obj)
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        for obj in queryset:
+            provisioning.delete_server_files(obj)
+        super().delete_queryset(request, queryset)
 
 
 @admin.register(Type)
