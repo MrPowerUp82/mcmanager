@@ -1,4 +1,3 @@
-import subprocess
 import os
 try:
     import pty
@@ -7,7 +6,7 @@ except ImportError:
 import psutil
 from django.http import JsonResponse, HttpRequest
 from django.shortcuts import render, redirect
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import Server
@@ -22,7 +21,6 @@ def is_server_running(id):
             pid = int(f.read().strip())
             try:
                 os.kill(pid, 0)
-                # print("PID: ", pid)
                 return True
             except OSError:
                 pass
@@ -36,6 +34,8 @@ def index(request, id):
     return render(request, 'console/index.html', {'server_running': server_running, 'server': server})
 
 
+@staff_member_required
+@require_POST
 def start_server(request, id):
     if pty is None:
         return JsonResponse({'status': 'error', 'message': 'PTY is not supported on this platform (Linux required)'})
@@ -61,6 +61,8 @@ def start_server(request, id):
         return JsonResponse({'status': 'error', 'message': 'Server is already running'})
 
 
+@staff_member_required
+@require_POST
 def force_stop_server(request, id):
     server = Server.objects.get(id=id)
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
@@ -85,6 +87,8 @@ def force_stop_server(request, id):
         return JsonResponse({'status': 'error', 'message': str(e)})
 
 
+@staff_member_required
+@require_POST
 def stop_server(request, id):
     server = Server.objects.get(id=id)
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
@@ -102,6 +106,7 @@ def stop_server(request, id):
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
 
+@staff_member_required
 def view_logs(request, id):
     server = Server.objects.get(id=id)
     servers_dir = getattr(settings, 'SERVERS_DIR', os.path.join(settings.BASE_DIR, 'servers'))
@@ -114,24 +119,23 @@ def view_logs(request, id):
         return JsonResponse({'status': 'error', 'message': 'Log file not found'})
 
 
-@csrf_exempt
 @staff_member_required
+@require_POST
 def send_command(request, id):
     SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
-    if request.method == 'POST':
-        command = request.POST.get('command')
-        if is_server_running(id):
-            try:
-                with open(SERVER_PTY_FILE, 'r') as f:
-                    fd = int(f.read().strip())
-                    os.write(fd, f'{command}\n'.encode())
-                    return JsonResponse({'status': 'success', 'message': 'Command sent'})
-            except OSError as e:
-                return JsonResponse({'status': 'error', 'message': str(e)})
-        return JsonResponse({'status': 'error', 'message': 'Server is not running'})
-    return JsonResponse({'status': 'failed', 'message': 'Invalid request method'})
+    command = request.POST.get('command')
+    if is_server_running(id):
+        try:
+            with open(SERVER_PTY_FILE, 'r') as f:
+                fd = int(f.read().strip())
+                os.write(fd, f'{command}\n'.encode())
+                return JsonResponse({'status': 'success', 'message': 'Command sent'})
+        except OSError as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
 
+@staff_member_required
 def get_server_stats(request, id):
     SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
     if is_server_running(id):
@@ -162,6 +166,7 @@ def get_server_stats(request, id):
     return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
 
+@staff_member_required
 def home(request: HttpRequest):
     ctx = {
         "servers": Server.objects.all()

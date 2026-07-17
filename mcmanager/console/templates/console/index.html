@@ -145,11 +145,20 @@
                 }
             }
 
+            function getCsrfToken() {
+                return document.querySelector('[name=csrfmiddlewaretoken]').value;
+            }
+
+            function postJSON(url) {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken() }
+                }).then(response => response.json());
+            }
+
             function startServer() {
-                fetch("{% url 'start_server' id=server.id %}")
-                    .then(response => response.json())
+                postJSON("{% url 'start_server' id=server.id %}")
                     .then(data => {
-                        // alert(data.message);
                         create_toast(data.message, 'green', 'white');
                         if (data.status === 'success') {
                             location.reload();
@@ -158,10 +167,8 @@
             }
 
             function stopServer() {
-                fetch("{% url 'stop_server' id=server.id %}")
-                    .then(response => response.json())
+                postJSON("{% url 'stop_server' id=server.id %}")
                     .then(data => {
-                        // alert(data.message);
                         create_toast(data.message, 'red', 'white');
                         if (data.status === 'success') {
                             location.reload();
@@ -170,10 +177,8 @@
             }
 
             function forceStopServer() {
-                fetch("{% url 'force_stop_server' id=server.id %}")
-                    .then(response => response.json())
+                postJSON("{% url 'force_stop_server' id=server.id %}")
                     .then(data => {
-                        // alert(data.message);
                         create_toast(data.message, 'red', 'white');
                         if (data.status === 'success') {
                             location.reload();
