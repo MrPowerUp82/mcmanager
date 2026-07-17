@@ -33,10 +33,12 @@ USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 (USER_DATA_DIR / "servers").mkdir(exist_ok=True)
 (USER_DATA_DIR / "jar").mkdir(exist_ok=True)
 (USER_DATA_DIR / "configs").mkdir(exist_ok=True)
+(USER_DATA_DIR / "run").mkdir(exist_ok=True)
 
 JAR_DIR = USER_DATA_DIR / 'jar'
 SERVERS_DIR = USER_DATA_DIR / 'servers'
 CONFIGS_DIR = USER_DATA_DIR / 'configs'
+RUN_DIR = USER_DATA_DIR / 'run'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY_FILE = USER_DATA_DIR / '.secret_key'
