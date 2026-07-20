@@ -89,8 +89,8 @@ def get_server_stats(request, id):
 
 @staff_member_required
 def home(request: HttpRequest):
-    ctx = {"servers": Server.objects.all()}
     if request.method == 'POST':
         server_id = request.POST.get('server_id')
         return redirect('index', id=server_id)
+    ctx = {"servers": [(s, process.is_running(s)) for s in Server.objects.all()]}
     return render(request, 'index.html', ctx)

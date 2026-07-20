@@ -19,7 +19,7 @@
             </a>
             <h1 class="text-3xl font-bold mb-4">
                 Server: {{ server.name }}
-                {% if server.status %}
+                {% if server_running %}
                     (ON)
                 {% else %}
                     (OFF)

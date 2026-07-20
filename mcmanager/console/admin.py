@@ -4,25 +4,30 @@ from django.contrib import admin
 
 from .forms import ServerForm
 from .models import Server, Type
-from .services import provisioning
+from .services import process, provisioning
 
 
 @admin.register(Server)
 class ServerAdmin(admin.ModelAdmin):
     form = ServerForm
-    list_display = ('name', 'port', 'type', 'status')
+    list_display = ('name', 'port', 'type', 'is_running')
     exclude = ('jar', 'server_properties')
     search_fields = ('name', 'port', 'type')
-    list_filter = ('type', 'status')
-    readonly_fields = ('status',)
+    list_filter = ('type',)
+    readonly_fields = ()
+
+    def is_running(self, obj):
+        return process.is_running(obj)
+    is_running.boolean = True
+    is_running.short_description = 'Running'
 
     def get_form(self, request, obj=..., change=..., **kwargs) -> Any:
         if obj is None:
             self.exclude = ('jar', 'server_properties')
-            self.readonly_fields = ('status',)
+            self.readonly_fields = ()
         else:
             self.exclude = None
-            self.readonly_fields = ('status', 'jar')
+            self.readonly_fields = ('jar',)
         return super().get_form(request, obj, change, **kwargs)
 
     def save_model(self, request, obj, form, change):
