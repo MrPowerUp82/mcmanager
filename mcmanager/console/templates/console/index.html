@@ -73,6 +73,7 @@
             }
             const memory_limit = parseFloat("{{server.memory_limit}}");
             let logOffset = 0;
+            let logFetchInFlight = false;
 
             const create_toast = (message, bgColor, textColor) => {
                 Toastify({
@@ -188,6 +189,10 @@
             }
 
             function viewLogs() {
+                if (logFetchInFlight) {
+                    return;
+                }
+                logFetchInFlight = true;
                 fetch(`{% url 'view_logs' id=server.id %}?offset=${logOffset}`)
                     .then(response => response.json())
                     .then(data => {
@@ -202,6 +207,9 @@
                         } else {
                             create_toast(data.message, 'red', 'white');
                         }
+                    })
+                    .finally(() => {
+                        logFetchInFlight = false;
                     });
             }
 
