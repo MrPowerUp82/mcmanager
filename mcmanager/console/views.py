@@ -1,176 +1,95 @@
-import os
-try:
-    import pty
-except ImportError:
-    pty = None
-import psutil
-from django.http import JsonResponse, HttpRequest
-from django.shortcuts import render, redirect
-from django.views.decorators.http import require_POST
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
+from django.http import HttpRequest, JsonResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
+
 from .models import Server
+from .services import process, rcon
 
 LOG_FILE = 'logs/latest.log'
-
-
-def is_server_running(id):
-    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
-    if os.path.exists(SERVER_PID_FILE):
-        with open(SERVER_PID_FILE, 'r') as f:
-            pid = int(f.read().strip())
-            try:
-                os.kill(pid, 0)
-                return True
-            except OSError:
-                pass
-    return False
 
 
 @staff_member_required
 def index(request, id):
     server = Server.objects.get(id=id)
-    server_running = is_server_running(id)
+    server_running = process.is_running(server)
     return render(request, 'console/index.html', {'server_running': server_running, 'server': server})
 
 
 @staff_member_required
 @require_POST
 def start_server(request, id):
-    if pty is None:
-        return JsonResponse({'status': 'error', 'message': 'PTY is not supported on this platform (Linux required)'})
     server = Server.objects.get(id=id)
-    SERVER_COMMAND = f"{settings.JAVA_BIN_PATH} -Xms{server.memory_limit}M -Xmx{server.memory_limit}M -jar {server.jar}"
-    servers_dir = getattr(settings, 'SERVERS_DIR', os.path.join(settings.BASE_DIR, 'servers'))
-    SERVER_DIRECTORY = os.path.join(servers_dir, f'server_{server.id}')
-    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
-    SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
-    if not is_server_running(id):
-        os.chdir(SERVER_DIRECTORY)
-        pid, fd = pty.fork()
-        if pid == 0:
-            os.execv('/bin/sh', ['/bin/sh', '-c', SERVER_COMMAND])
-        with open(SERVER_PID_FILE, 'w') as f:
-            f.write(str(pid))
-        with open(SERVER_PTY_FILE, 'w') as f:
-            f.write(str(fd))
-        server.status = True
-        server.save()
+    try:
+        process.start(server)
         return JsonResponse({'status': 'success', 'message': 'Server started'})
-    else:
+    except process.AlreadyRunningError:
         return JsonResponse({'status': 'error', 'message': 'Server is already running'})
+    except process.JavaNotFoundError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 @staff_member_required
 @require_POST
 def force_stop_server(request, id):
     server = Server.objects.get(id=id)
-    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
-    SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
-    try:
-        if os.path.exists(SERVER_PID_FILE):
-            with open(SERVER_PID_FILE, 'r') as f:
-                pid = int(f.read().strip())
-            try:
-                psutil.Process(pid).kill()
-            except psutil.NoSuchProcess:
-                pass
-        for path in (SERVER_PID_FILE, SERVER_PTY_FILE):
-            try:
-                os.remove(path)
-            except FileNotFoundError:
-                pass
-        server.status = False
-        server.save()
-        return JsonResponse({'status': 'success', 'message': 'Server stopped'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
+    process.force_stop(server)
+    return JsonResponse({'status': 'success', 'message': 'Server stopped'})
 
 
 @staff_member_required
 @require_POST
 def stop_server(request, id):
     server = Server.objects.get(id=id)
-    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
-    SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
-    if is_server_running(id):
-        with open(SERVER_PID_FILE, 'r') as f:
-            pid = int(f.read().strip())
-            os.kill(pid, 15)
-        os.remove(SERVER_PID_FILE)
-        os.remove(SERVER_PTY_FILE)
-        server.status = False
-        server.save()
+    try:
+        process.stop(server)
         return JsonResponse({'status': 'success', 'message': 'Server stopped'})
-    else:
+    except process.ProcessNotRunningError:
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+    except process.StopTimeoutError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+    except rcon.RconError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 @staff_member_required
 def view_logs(request, id):
     server = Server.objects.get(id=id)
-    servers_dir = getattr(settings, 'SERVERS_DIR', os.path.join(settings.BASE_DIR, 'servers'))
-    SERVER_DIRECTORY = os.path.join(servers_dir, f'server_{server.id}')
-    if os.path.exists(os.path.join(SERVER_DIRECTORY, LOG_FILE)):
-        with open(os.path.join(SERVER_DIRECTORY, LOG_FILE), 'r', encoding="utf8", errors='ignore') as f:
-            logs = f.read()
+    log_path = settings.SERVERS_DIR / f'server_{server.id}' / LOG_FILE
+    if log_path.exists():
+        logs = log_path.read_text(encoding='utf8', errors='ignore')
         return JsonResponse({'status': 'success', 'logs': logs})
-    else:
-        return JsonResponse({'status': 'error', 'message': 'Log file not found'})
+    return JsonResponse({'status': 'error', 'message': 'Log file not found'})
 
 
 @staff_member_required
 @require_POST
 def send_command(request, id):
-    SERVER_PTY_FILE = f'/tmp/minecraft_server_{id}.pty'
+    server = Server.objects.get(id=id)
     command = request.POST.get('command')
-    if is_server_running(id):
-        try:
-            with open(SERVER_PTY_FILE, 'r') as f:
-                fd = int(f.read().strip())
-                os.write(fd, f'{command}\n'.encode())
-                return JsonResponse({'status': 'success', 'message': 'Command sent'})
-        except OSError as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-    return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+    try:
+        response = process.send_command(server, command)
+        return JsonResponse({'status': 'success', 'message': response or 'Command sent'})
+    except process.ProcessNotRunningError:
+        return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+    except rcon.RconError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 @staff_member_required
 def get_server_stats(request, id):
-    SERVER_PID_FILE = f'/tmp/minecraft_server_{id}.pid'
-    if is_server_running(id):
-        with open(SERVER_PID_FILE, 'r') as f:
-            pid = int(f.read().strip())
-            try:
-                process = psutil.Process(pid)
-
-                cpu_usage = process.cpu_percent(interval=1)
-                memory_info = process.memory_info()
-                memory_usage = memory_info.rss / (1024 * 1024)
-
-                virtual_memory = psutil.virtual_memory()
-                total_memory = virtual_memory.total / (1024 * 1024)
-                used_memory = virtual_memory.used / (1024 * 1024)
-
-                total_cpu_usage = psutil.cpu_percent(interval=1)
-                return JsonResponse({
-                    'status': 'success',
-                    'cpu_usage': cpu_usage,
-                    'memory_usage': memory_usage,
-                    'total_memory': total_memory,
-                    'used_memory': used_memory,
-                    'total_cpu_usage': total_cpu_usage,
-                })
-            except psutil.NoSuchProcess:
-                return JsonResponse({'status': 'error', 'message': 'Process not found'})
-    return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+    server = Server.objects.get(id=id)
+    try:
+        stats = process.get_stats(server)
+        return JsonResponse({'status': 'success', **stats})
+    except process.ProcessNotRunningError:
+        return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
 
 @staff_member_required
 def home(request: HttpRequest):
-    ctx = {
-        "servers": Server.objects.all()
-    }
+    ctx = {"servers": Server.objects.all()}
     if request.method == 'POST':
         server_id = request.POST.get('server_id')
         return redirect('index', id=server_id)
