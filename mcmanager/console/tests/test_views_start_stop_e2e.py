@@ -98,3 +98,16 @@ def test_stop_server_when_not_running_returns_error(staff_client, provisioned_se
     resp = staff_client.post(f"/console/stop_server/{provisioned_server.id}")
     assert resp.status_code == 200
     assert resp.json()["status"] == "error"
+
+
+@pytest.mark.django_db
+def test_send_command_without_command_param_returns_clean_error(staff_client, provisioned_server):
+    server = provisioned_server
+    staff_client.post(f"/console/start_server/{server.id}")
+    try:
+        resp = staff_client.post(f"/console/send_command/{server.id}", {})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "error"
+    finally:
+        process.force_stop(server)

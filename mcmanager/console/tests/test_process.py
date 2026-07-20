@@ -2,6 +2,7 @@ import itertools
 import os
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import psutil
 import pytest
@@ -125,6 +126,23 @@ def test_get_stats_returns_cpu_and_memory(server, fake_java):
 def test_get_stats_raises_when_not_running(server):
     with pytest.raises(process.ProcessNotRunningError):
         process.get_stats(server)
+
+
+@pytest.mark.django_db
+def test_get_stats_maps_no_such_process_race_to_process_not_running_error(server, fake_java):
+    """Regression test for the is_running()/psutil.Process() TOCTOU race: if the
+    process dies between the is_running() check and the stats read, get_stats()
+    must raise ProcessNotRunningError instead of letting psutil.NoSuchProcess
+    propagate uncaught (which would 500 the view)."""
+    process.start(server)
+    try:
+        with patch("mcmanager.console.services.process.is_running", return_value=True), \
+             patch("mcmanager.console.services.process.psutil.Process") as mock_process_cls:
+            mock_process_cls.side_effect = psutil.NoSuchProcess(pid=999999)
+            with pytest.raises(process.ProcessNotRunningError):
+                process.get_stats(server)
+    finally:
+        process.force_stop(server)
 
 
 @pytest.mark.django_db

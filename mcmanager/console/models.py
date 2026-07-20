@@ -1,7 +1,9 @@
 import os
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 
 def get_jar_files():
@@ -28,6 +30,9 @@ class Type(models.Model):
         return self.name
 
 
+MAX_GAME_PORT = 55535  # port + 10000 (the RCON port) must not exceed 65535
+
+
 class Server(models.Model):
     name = models.CharField(max_length=100)
     jar_template = models.CharField(max_length=100)
@@ -44,3 +49,26 @@ class Server(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        if self.port is None:
+            return
+        if self.port > MAX_GAME_PORT:
+            raise ValidationError({
+                'port': 'Port must leave room for the RCON port (port + 10000 must not exceed 65535).',
+            })
+
+        implied_rcon_port = self.port + 10000
+        conflict = Server.objects.exclude(pk=self.pk).filter(
+            Q(port=implied_rcon_port)
+            | Q(rcon_port=implied_rcon_port)
+            | Q(rcon_port=self.port)
+        ).first()
+        if conflict is not None:
+            raise ValidationError({
+                'port': (
+                    f'This port implies RCON port {implied_rcon_port}, which conflicts with '
+                    f'server "{conflict.name}" (port={conflict.port}, rcon_port={conflict.rcon_port}).'
+                ),
+            })

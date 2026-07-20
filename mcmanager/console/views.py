@@ -68,6 +68,8 @@ def view_logs(request, id):
 def send_command(request, id):
     server = Server.objects.get(id=id)
     command = request.POST.get('command')
+    if not command:
+        return JsonResponse({'status': 'error', 'message': 'No command provided'})
     try:
         response = process.send_command(server, command)
         return JsonResponse({'status': 'success', 'message': response or 'Command sent'})

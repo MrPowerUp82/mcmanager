@@ -72,7 +72,7 @@ def is_running(server):
         cmdline = ' '.join(process_handle.cmdline())
     except psutil.NoSuchProcess:
         return False
-    return state.get('jar', '') in cmdline
+    return (state.get('jar') or '') in cmdline
 
 
 def start(server):
@@ -133,18 +133,21 @@ def get_stats(server):
     state = _read_state(server)
     if state is None or not is_running(server):
         raise ProcessNotRunningError(f'Server {server.id} is not running')
-    process_handle = psutil.Process(state['pid'])
-    cpu_usage = process_handle.cpu_percent(interval=1)
-    memory_info = process_handle.memory_info()
-    memory_usage = memory_info.rss / (1024 * 1024)
-    virtual_memory = psutil.virtual_memory()
-    return {
-        'cpu_usage': cpu_usage,
-        'memory_usage': memory_usage,
-        'total_memory': virtual_memory.total / (1024 * 1024),
-        'used_memory': virtual_memory.used / (1024 * 1024),
-        'total_cpu_usage': psutil.cpu_percent(interval=1),
-    }
+    try:
+        process_handle = psutil.Process(state['pid'])
+        cpu_usage = process_handle.cpu_percent(interval=1)
+        memory_info = process_handle.memory_info()
+        memory_usage = memory_info.rss / (1024 * 1024)
+        virtual_memory = psutil.virtual_memory()
+        return {
+            'cpu_usage': cpu_usage,
+            'memory_usage': memory_usage,
+            'total_memory': virtual_memory.total / (1024 * 1024),
+            'used_memory': virtual_memory.used / (1024 * 1024),
+            'total_cpu_usage': psutil.cpu_percent(interval=1),
+        }
+    except psutil.NoSuchProcess as exc:
+        raise ProcessNotRunningError(f'Server {server.id} is not running') from exc
 
 
 STOP_TIMEOUT_SECONDS = 30
