@@ -72,6 +72,7 @@
                 var log_job = setInterval(viewLogs, 2500);
             }
             const memory_limit = parseFloat("{{server.memory_limit}}");
+            let logOffset = 0;
 
             const create_toast = (message, bgColor, textColor) => {
                 Toastify({
@@ -187,13 +188,18 @@
             }
 
             function viewLogs() {
-                fetch("{% url 'view_logs' id=server.id %}")
+                fetch(`{% url 'view_logs' id=server.id %}?offset=${logOffset}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            document.getElementById('logs').innerText = data.logs;
+                            const logsEl = document.getElementById('logs');
+                            if (data.offset < logOffset) {
+                                logsEl.textContent = '';
+                            }
+                            logsEl.textContent += data.logs;
+                            logOffset = data.offset;
+                            logsEl.scrollTop = logsEl.scrollHeight;
                         } else {
-                            // alert(data.message);
                             create_toast(data.message, 'red', 'white');
                         }
                     });
