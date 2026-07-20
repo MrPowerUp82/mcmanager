@@ -57,10 +57,29 @@ def stop_server(request, id):
 def view_logs(request, id):
     server = Server.objects.get(id=id)
     log_path = settings.SERVERS_DIR / f'server_{server.id}' / LOG_FILE
-    if log_path.exists():
-        logs = log_path.read_text(encoding='utf8', errors='ignore')
-        return JsonResponse({'status': 'success', 'logs': logs})
-    return JsonResponse({'status': 'error', 'message': 'Log file not found'})
+    try:
+        offset = int(request.GET.get('offset', 0))
+    except ValueError:
+        offset = 0
+    if offset < 0:
+        offset = 0
+
+    if not log_path.exists():
+        return JsonResponse({'status': 'error', 'message': 'Log file not found'})
+
+    file_size = log_path.stat().st_size
+    if offset > file_size:
+        offset = 0
+
+    with log_path.open('rb') as f:
+        f.seek(offset)
+        new_bytes = f.read()
+
+    return JsonResponse({
+        'status': 'success',
+        'logs': new_bytes.decode('utf-8', errors='replace'),
+        'offset': offset + len(new_bytes),
+    })
 
 
 @staff_member_required
