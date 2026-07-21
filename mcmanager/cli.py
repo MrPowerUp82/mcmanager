@@ -47,6 +47,7 @@ def main():
     (data_dir / "jar").mkdir(exist_ok=True)
     (data_dir / "configs").mkdir(exist_ok=True)
     (data_dir / "run").mkdir(exist_ok=True)
+    (data_dir / "backups").mkdir(exist_ok=True)
 
     # 2. Copiar server.properties padrão se não existir
     properties_dest = data_dir / "configs" / "server.properties"

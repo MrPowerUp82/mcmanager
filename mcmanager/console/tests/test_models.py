@@ -82,3 +82,26 @@ def test_jar_download_str_includes_provider_and_version():
 
     assert "paper" in str(download)
     assert "1.20.4" in str(download)
+
+
+from mcmanager.console.models import Backup
+
+
+@pytest.mark.django_db
+def test_backup_defaults_to_pending_status(server_type):
+    server = Server.objects.create(name="Test", jar_template="paper.jar", port=25566, type=server_type)
+    backup = Backup.objects.create(server=server)
+
+    assert backup.status == "pending"
+    assert backup.filename == ""
+    assert backup.error_message == ""
+
+
+@pytest.mark.django_db
+def test_backup_deleted_when_server_is_deleted(server_type):
+    server = Server.objects.create(name="Test", jar_template="paper.jar", port=25566, type=server_type)
+    backup = Backup.objects.create(server=server)
+
+    server.delete()
+
+    assert not Backup.objects.filter(id=backup.id).exists()
