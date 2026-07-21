@@ -46,6 +46,11 @@ class Server(models.Model):
     server_properties = models.TextField(blank=True, null=True)
     rcon_port = models.IntegerField(editable=False, default=0)
     rcon_password = models.CharField(max_length=32, editable=False, default='', blank=True)
+    auto_restart_enabled = models.BooleanField(default=False)
+    desired_running = models.BooleanField(default=False, editable=False)
+    consecutive_restart_failures = models.IntegerField(default=0, editable=False)
+    scheduled_backup_time = models.TimeField(null=True, blank=True)
+    last_scheduled_backup_date = models.DateField(null=True, blank=True, editable=False)
 
     def __str__(self):
         return self.name

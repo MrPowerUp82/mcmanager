@@ -105,3 +105,14 @@ def test_backup_deleted_when_server_is_deleted(server_type):
     server.delete()
 
     assert not Backup.objects.filter(id=backup.id).exists()
+
+
+@pytest.mark.django_db
+def test_server_defaults_have_auto_restart_disabled_and_no_schedule(server_type):
+    server = Server.objects.create(name="Test", jar_template="paper.jar", port=25566, type=server_type)
+
+    assert server.auto_restart_enabled is False
+    assert server.desired_running is False
+    assert server.consecutive_restart_failures == 0
+    assert server.scheduled_backup_time is None
+    assert server.last_scheduled_backup_date is None
