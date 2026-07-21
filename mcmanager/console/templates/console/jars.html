@@ -1,0 +1,122 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Download de Jars</title>
+        <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+        <link href="{% static 'css/tailwind.css' %}" rel="stylesheet">
+        <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet" />
+        <link href="{% static 'css/font-awesome.min.css' %}" rel="stylesheet" />
+    </head>
+    <body class="bg-gray-100 p-6">
+        <div class="container mx-auto">
+            <a href="{% url 'home' %}">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fa fa-arrow-left" aria-hidden="true"></i>
+                </button>
+            </a>
+            <h1 class="text-3xl font-bold mb-4">Download de Jars</h1>
+            <form id="download-form" class="mb-4">
+                {% csrf_token %}
+                <select id="provider" class="shadow border rounded py-2 px-3 mr-2">
+                    <option value="mojang">Vanilla (Mojang)</option>
+                    <option value="paper">Paper</option>
+                </select>
+                <select id="version" class="shadow border rounded py-2 px-3 mr-2"></select>
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Baixar
+                </button>
+            </form>
+            <div id="download-status" class="mt-4"></div>
+        </div>
+        <script type="text/javascript" src="{% static 'js/toastify-js.js' %}"></script>
+        <script>
+            function getCsrfToken() {
+                return document.querySelector('[name=csrfmiddlewaretoken]').value;
+            }
+
+            function create_toast(message, bgColor, textColor) {
+                Toastify({
+                    text: message,
+                    duration: 4000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    stopOnFocus: true,
+                    style: { background: bgColor, color: textColor },
+                }).showToast();
+            }
+
+            function loadVersions() {
+                const provider = document.getElementById('provider').value;
+                fetch(`/console/jars/versions/${provider}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const versionSelect = document.getElementById('version');
+                        versionSelect.innerHTML = '';
+                        if (data.status === 'success') {
+                            data.versions.forEach(v => {
+                                const opt = document.createElement('option');
+                                opt.value = v.version;
+                                opt.textContent = v.label;
+                                versionSelect.appendChild(opt);
+                            });
+                        } else {
+                            create_toast(data.message, 'red', 'white');
+                        }
+                    });
+            }
+
+            document.getElementById('provider').addEventListener('change', loadVersions);
+            loadVersions();
+
+            let statusPoll = null;
+
+            document.getElementById('download-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const provider = document.getElementById('provider').value;
+                const version = document.getElementById('version').value;
+                const formData = new FormData();
+                formData.append('provider', provider);
+                formData.append('version', version);
+
+                fetch('/console/jars/download', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            pollStatus(data.download_id);
+                        } else {
+                            create_toast(data.message, 'red', 'white');
+                        }
+                    });
+            });
+
+            function pollStatus(downloadId) {
+                if (statusPoll !== null) {
+                    clearInterval(statusPoll);
+                }
+                document.getElementById('download-status').textContent = 'Baixando...';
+                statusPoll = setInterval(() => {
+                    fetch(`/console/jars/download/${downloadId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('download-status').textContent = data.download_status;
+                            if (data.download_status === 'done') {
+                                clearInterval(statusPoll);
+                                create_toast('Jar baixado: ' + data.filename, 'green', 'white');
+                            } else if (data.download_status === 'error') {
+                                clearInterval(statusPoll);
+                                create_toast(data.error_message, 'red', 'white');
+                            }
+                        });
+                }, 2000);
+            }
+        </script>
+    </body>
+</html>
