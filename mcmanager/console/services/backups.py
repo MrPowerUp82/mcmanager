@@ -56,7 +56,10 @@ def _run_backup(backup_id):
         backup.filename = filename
         backup.status = 'done'
         backup.save(update_fields=['filename', 'status'])
-        _apply_retention(server)
+        try:
+            _apply_retention(server)
+        except Exception:
+            pass  # cleanup of OLD backups failing must not mark THIS successful backup as an error
     except Exception as exc:
         backup.status = 'error'
         backup.error_message = str(exc)

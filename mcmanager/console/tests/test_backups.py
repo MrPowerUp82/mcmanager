@@ -85,6 +85,18 @@ def test_start_backup_still_sends_save_on_when_zip_fails(server_with_files):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_start_backup_status_stays_done_when_retention_fails(server_with_files):
+    with patch("mcmanager.console.services.backups.process.is_running", return_value=False), \
+         patch("mcmanager.console.services.backups.process.send_command"), \
+         patch("mcmanager.console.services.backups._apply_retention", side_effect=OSError("permission denied")):
+        backup = backups.start_backup(server_with_files)
+        result = _wait_for_terminal_status(backup.id)
+
+    assert result.status == "done"
+    assert result.filename.endswith(".zip")
+
+
+@pytest.mark.django_db(transaction=True)
 def test_retention_keeps_only_5_most_recent_backups(server_with_files, settings):
     backup_dir = settings.BACKUPS_DIR / f"server_{server_with_files.id}"
     backup_dir.mkdir(parents=True, exist_ok=True)
