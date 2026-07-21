@@ -63,6 +63,15 @@
                  style="white-space: pre-wrap;
                         max-height: 400px"></div>
             <div id="stats" class="mt-4"></div>
+            <div class="mt-6">
+                <h2 class="text-xl font-bold mb-2">Backups</h2>
+                <button onclick="startBackup()"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Fazer backup
+                </button>
+                <div id="backup-progress" class="mt-2"></div>
+                <ul id="backup-list" class="mt-2"></ul>
+            </div>
         </div>
         <script type="text/javascript" src="{% static 'js/toastify-js.js' %}"></script>
         <script>
@@ -237,6 +246,114 @@
                         viewLogs();
                     });
             };
+
+            let backupPoll = null;
+
+            function loadBackupList() {
+                fetch(`/console/backups/{{ server.id }}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const list = document.getElementById('backup-list');
+                        list.innerHTML = '';
+                        if (data.status !== 'success') {
+                            create_toast(data.message, 'red', 'white');
+                            return;
+                        }
+                        data.backups.forEach(filename => {
+                            const item = document.createElement('li');
+                            item.className = 'flex items-center gap-2 mb-1';
+                            item.innerHTML = `
+                                <span>${filename}</span>
+                                <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm">Restaurar</button>
+                                <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Apagar</button>
+                            `;
+                            const [restoreBtn, deleteBtn] = item.querySelectorAll('button');
+                            restoreBtn.onclick = () => restoreBackup(filename);
+                            restoreBtn.disabled = server_is_on;
+                            deleteBtn.onclick = () => deleteBackupFile(filename);
+                            list.appendChild(item);
+                        });
+                    });
+            }
+
+            loadBackupList();
+
+            function startBackup() {
+                postJSON(`/console/backups/{{ server.id }}/create`)
+                    .then(data => {
+                        if (data.status === 'success') {
+                            pollBackupStatus(data.backup_id);
+                        } else {
+                            create_toast(data.message, 'red', 'white');
+                        }
+                    });
+            }
+
+            function pollBackupStatus(backupId) {
+                if (backupPoll !== null) {
+                    clearInterval(backupPoll);
+                }
+                document.getElementById('backup-progress').textContent = 'Fazendo backup...';
+                backupPoll = setInterval(() => {
+                    fetch(`/console/backups/status/${backupId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.backup_status === 'done') {
+                                clearInterval(backupPoll);
+                                document.getElementById('backup-progress').textContent = '';
+                                create_toast('Backup concluído: ' + data.filename, 'green', 'white');
+                                loadBackupList();
+                            } else if (data.backup_status === 'error') {
+                                clearInterval(backupPoll);
+                                document.getElementById('backup-progress').textContent = '';
+                                create_toast(data.error_message, 'red', 'white');
+                            }
+                        });
+                }, 2000);
+            }
+
+            function restoreBackup(filename) {
+                if (!confirm(`Restaurar o backup ${filename}? Isso substitui todos os arquivos atuais do servidor.`)) {
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('filename', filename);
+                fetch(`/console/backups/{{ server.id }}/restore`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            create_toast('Backup restaurado', 'green', 'white');
+                        } else {
+                            create_toast(data.message, 'red', 'white');
+                        }
+                    });
+            }
+
+            function deleteBackupFile(filename) {
+                if (!confirm(`Apagar o backup ${filename}? Essa ação não pode ser desfeita.`)) {
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('filename', filename);
+                fetch(`/console/backups/{{ server.id }}/delete`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            create_toast('Backup apagado', 'green', 'white');
+                            loadBackupList();
+                        } else {
+                            create_toast(data.message, 'red', 'white');
+                        }
+                    });
+            }
         </script>
     </body>
 </html>
