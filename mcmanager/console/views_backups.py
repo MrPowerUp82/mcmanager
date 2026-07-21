@@ -43,7 +43,7 @@ def restore_backup_view(request, server_id):
         return JsonResponse({'status': 'error', 'message': 'No backup filename provided'})
     try:
         backups.start_restore(server, filename)
-    except (backups.RestoreServerRunningError, FileNotFoundError, ValueError) as exc:
+    except Exception as exc:
         return JsonResponse({'status': 'error', 'message': str(exc)})
     return JsonResponse({'status': 'success', 'message': 'Backup restored'})
 
@@ -57,6 +57,6 @@ def delete_backup_view(request, server_id):
         return JsonResponse({'status': 'error', 'message': 'No backup filename provided'})
     try:
         backups.delete_backup(server, filename)
-    except ValueError as exc:
+    except Exception as exc:
         return JsonResponse({'status': 'error', 'message': str(exc)})
     return JsonResponse({'status': 'success'})

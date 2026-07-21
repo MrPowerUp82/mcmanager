@@ -1,3 +1,4 @@
+import zipfile
 from unittest.mock import patch
 
 import pytest
@@ -101,6 +102,20 @@ def test_restore_backup_view_rejects_when_server_running(staff_client, server):
 
 
 @pytest.mark.django_db
+def test_restore_backup_view_handles_corrupt_archive(staff_client, server):
+    with patch(
+        "mcmanager.console.views_backups.backups.start_restore",
+        side_effect=zipfile.BadZipFile("corrupt archive"),
+    ):
+        resp = staff_client.post(f"/console/backups/{server.id}/restore", {"filename": "20260101T000000Z.zip"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "error"
+    assert "corrupt archive" in body["message"]
+
+
+@pytest.mark.django_db
 def test_restore_backup_view_requires_post(staff_client, server):
     resp = staff_client.get(f"/console/backups/{server.id}/restore")
     assert resp.status_code == 405
@@ -114,6 +129,20 @@ def test_delete_backup_view_removes_backup(staff_client, server):
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
     mock_delete.assert_called_once_with(server, "20260101T000000Z.zip")
+
+
+@pytest.mark.django_db
+def test_delete_backup_view_handles_os_error(staff_client, server):
+    with patch(
+        "mcmanager.console.views_backups.backups.delete_backup",
+        side_effect=OSError("disk full"),
+    ):
+        resp = staff_client.post(f"/console/backups/{server.id}/delete", {"filename": "20260101T000000Z.zip"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "error"
+    assert "disk full" in body["message"]
 
 
 @pytest.mark.django_db
