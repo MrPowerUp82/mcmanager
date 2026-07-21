@@ -23,6 +23,9 @@ def start_server(request, id):
     server = Server.objects.get(id=id)
     try:
         process.start(server)
+        server.desired_running = True
+        server.consecutive_restart_failures = 0
+        server.save(update_fields=['desired_running', 'consecutive_restart_failures'])
         return JsonResponse({'status': 'success', 'message': 'Server started'})
     except process.AlreadyRunningError:
         return JsonResponse({'status': 'error', 'message': 'Server is already running'})
@@ -35,6 +38,8 @@ def start_server(request, id):
 def force_stop_server(request, id):
     server = Server.objects.get(id=id)
     process.force_stop(server)
+    server.desired_running = False
+    server.save(update_fields=['desired_running'])
     return JsonResponse({'status': 'success', 'message': 'Server stopped'})
 
 
@@ -44,6 +49,8 @@ def stop_server(request, id):
     server = Server.objects.get(id=id)
     try:
         process.stop(server)
+        server.desired_running = False
+        server.save(update_fields=['desired_running'])
         return JsonResponse({'status': 'success', 'message': 'Server stopped'})
     except process.ProcessNotRunningError:
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})

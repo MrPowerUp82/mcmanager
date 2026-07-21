@@ -98,6 +98,8 @@ def main():
         print("[+] Agora você pode rodar: mcmanager createsuperuser")
 
     elif args.command == "run":
+        from mcmanager.console.services import supervisor
+        supervisor.start()
         bind_address = f"{args.host}:{args.port}"
         print(f"[*] Iniciando servidor mcmanager em http://{bind_address}/")
         print("[*] Pressione CTRL+C para encerrar.")

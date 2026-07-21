@@ -11,7 +11,7 @@ from .services import process, provisioning
 class ServerAdmin(admin.ModelAdmin):
     form = ServerForm
     list_display = ('name', 'port', 'type', 'is_running')
-    exclude = ('jar', 'server_properties')
+    exclude = ('jar', 'server_properties', 'desired_running', 'consecutive_restart_failures', 'last_scheduled_backup_date')
     search_fields = ('name', 'port', 'type')
     list_filter = ('type',)
     readonly_fields = ()
@@ -22,11 +22,12 @@ class ServerAdmin(admin.ModelAdmin):
     is_running.short_description = 'Running'
 
     def get_form(self, request, obj=..., change=..., **kwargs) -> Any:
+        internal_fields = ('desired_running', 'consecutive_restart_failures', 'last_scheduled_backup_date')
         if obj is None:
-            self.exclude = ('jar', 'server_properties')
+            self.exclude = ('jar', 'server_properties') + internal_fields
             self.readonly_fields = ()
         else:
-            self.exclude = None
+            self.exclude = internal_fields
             self.readonly_fields = ('jar',)
         return super().get_form(request, obj, change, **kwargs)
 
