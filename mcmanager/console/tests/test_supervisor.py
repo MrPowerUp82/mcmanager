@@ -1,3 +1,4 @@
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -128,3 +129,82 @@ def test_tick_treats_already_running_race_as_success(provisioned_server):
     server.refresh_from_db()
     assert server.consecutive_restart_failures == 0
     assert server.auto_restart_enabled is True
+
+
+@pytest.mark.django_db
+def test_check_scheduled_backup_triggers_when_time_has_passed(provisioned_server):
+    server = provisioned_server
+    server.scheduled_backup_time = time(0, 0)
+    server.save()
+
+    with patch("mcmanager.console.services.supervisor.backups.start_backup") as mock_start:
+        supervisor._tick()
+
+    mock_start.assert_called_once_with(server)
+    server.refresh_from_db()
+    assert server.last_scheduled_backup_date == datetime.now(timezone.utc).date()
+
+
+@pytest.mark.django_db
+def test_check_scheduled_backup_does_not_trigger_before_time(provisioned_server):
+    server = provisioned_server
+    future_time = (datetime.now(timezone.utc) + timedelta(hours=1)).time()
+    server.scheduled_backup_time = future_time
+    server.save()
+
+    with patch("mcmanager.console.services.supervisor.backups.start_backup") as mock_start:
+        supervisor._tick()
+
+    mock_start.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_check_scheduled_backup_does_not_repeat_same_day(provisioned_server):
+    server = provisioned_server
+    server.scheduled_backup_time = time(0, 0)
+    server.last_scheduled_backup_date = datetime.now(timezone.utc).date()
+    server.save()
+
+    with patch("mcmanager.console.services.supervisor.backups.start_backup") as mock_start:
+        supervisor._tick()
+
+    mock_start.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_check_scheduled_backup_does_nothing_when_not_set(provisioned_server):
+    server = provisioned_server
+    assert server.scheduled_backup_time is None
+
+    with patch("mcmanager.console.services.supervisor.backups.start_backup") as mock_start:
+        supervisor._tick()
+
+    mock_start.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_tick_continues_to_other_servers_after_one_raises(provisioned_server, settings, server_type):
+    # First server: scheduled backup that will raise when start_backup is called.
+    provisioned_server.scheduled_backup_time = time(0, 0)
+    provisioned_server.save()
+
+    # Second server: crashed, needs restarting.
+    second_server = Server.objects.create(
+        name="Second", jar_template="paper.jar", port=25567, type=server_type
+    )
+    provisioning.create_server_files(second_server)
+    second_server.refresh_from_db()
+    second_server.auto_restart_enabled = True
+    second_server.desired_running = True
+    second_server.save()
+
+    try:
+        with patch(
+            "mcmanager.console.services.supervisor.backups.start_backup",
+            side_effect=Exception("boom"),
+        ):
+            supervisor._tick()
+
+        assert process.is_running(second_server) is True
+    finally:
+        process.force_stop(second_server)

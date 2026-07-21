@@ -2,9 +2,10 @@
 triggers scheduled daily backups. Runs as a single daemon thread started
 explicitly by `mcmanager run` (never during migrate/shell/tests)."""
 import threading
+from datetime import datetime, timezone
 
 from ..models import Server
-from . import process
+from . import backups, process
 
 TICK_SECONDS = 30
 MAX_RESTART_ATTEMPTS = 3
@@ -26,7 +27,11 @@ def _run_forever():
 
 def _tick():
     for server in Server.objects.all():
-        _check_auto_restart(server)
+        try:
+            _check_auto_restart(server)
+            _check_scheduled_backup(server)
+        except Exception:
+            pass
 
 
 def _check_auto_restart(server):
@@ -58,3 +63,16 @@ def _check_auto_restart(server):
     if server.consecutive_restart_failures:
         server.consecutive_restart_failures = 0
         server.save(update_fields=['consecutive_restart_failures'])
+
+
+def _check_scheduled_backup(server):
+    if server.scheduled_backup_time is None:
+        return
+    now = datetime.now(timezone.utc)
+    if server.last_scheduled_backup_date == now.date():
+        return
+    if now.time() < server.scheduled_backup_time:
+        return
+    server.last_scheduled_backup_date = now.date()
+    server.save(update_fields=['last_scheduled_backup_date'])
+    backups.start_backup(server)
