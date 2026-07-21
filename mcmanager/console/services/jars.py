@@ -2,7 +2,6 @@
 the chosen provider, streams the file to JAR_DIR, verifies the checksum, and
 only makes the file visible (via an atomic rename) once it's verified."""
 import hashlib
-import pathlib
 import threading
 import urllib.request
 
@@ -34,7 +33,7 @@ def _run_download(download_id):
     try:
         info = PROVIDERS[download.provider].get_download_info(download.version)
 
-        if pathlib.Path(info.filename).name != info.filename:
+        if not info.filename or info.filename in ('.', '..') or '/' in info.filename or '\\' in info.filename:
             download.status = 'error'
             download.error_message = (
                 f'Filename safety violation -- provider returned an unsafe filename: {info.filename!r}'
@@ -66,8 +65,8 @@ def _run_download(download_id):
         download.status = 'done'
         download.save(update_fields=['filename', 'status'])
     except Exception as exc:
-        if tmp_path is not None and tmp_path.exists():
-            tmp_path.unlink()
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
         download.status = 'error'
         download.error_message = str(exc)
         download.save(update_fields=['status', 'error_message'])

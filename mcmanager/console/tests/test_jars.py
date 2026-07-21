@@ -85,7 +85,10 @@ def test_start_download_records_error_when_provider_raises(settings, tmp_path):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize('unsafe_filename', ['../evil.jar', 'subdir/evil.jar', '..\\evil.jar'])
+@pytest.mark.parametrize(
+    'unsafe_filename',
+    ['../evil.jar', 'subdir/evil.jar', '..\\evil.jar', '..', '.'],
+)
 def test_start_download_rejects_unsafe_provider_filename(settings, tmp_path, unsafe_filename):
     settings.JAR_DIR = tmp_path / 'jar'
     settings.JAR_DIR.mkdir()
