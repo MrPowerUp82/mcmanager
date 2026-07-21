@@ -76,3 +76,62 @@ def _apply_retention(server):
     for old_filename in list_backups(server)[RETENTION_COUNT:]:
         (settings.BACKUPS_DIR / f'server_{server.id}' / old_filename).unlink(missing_ok=True)
         Backup.objects.filter(server=server, filename=old_filename).delete()
+
+
+class RestoreServerRunningError(Exception):
+    """Raised by start_restore() when the server is still running."""
+
+
+def _validate_backup_filename(filename):
+    # A pure string check -- pathlib.Path(x).name is NOT a reliable
+    # cross-platform guard here: on POSIX, backslash is an ordinary
+    # character, so Path('..\\evil.zip').name returns the string
+    # unchanged (still unsafe), while on Windows it strips to something
+    # that looks safe. This must reject the same inputs on every platform.
+    if (
+        not filename
+        or filename in ('.', '..')
+        or '/' in filename
+        or '\\' in filename
+        or ':' in filename
+        or not filename.endswith('.zip')
+    ):
+        raise ValueError(f'Invalid backup filename: {filename!r}')
+
+
+def start_restore(server, filename):
+    _validate_backup_filename(filename)
+    if process.is_running(server):
+        raise RestoreServerRunningError(f'Server {server.id} must be stopped before restoring a backup')
+
+    backup_path = settings.BACKUPS_DIR / f'server_{server.id}' / filename
+    if not backup_path.exists():
+        raise FileNotFoundError(f'Backup not found: {filename}')
+
+    server_dir = settings.SERVERS_DIR / f'server_{server.id}'
+    tmp_dir = Path(tempfile.mkdtemp(dir=str(settings.SERVERS_DIR)))
+    old_dir_aside = tmp_dir.with_name(tmp_dir.name + '_old')
+    moved_old_dir = False
+    try:
+        shutil.unpack_archive(str(backup_path), str(tmp_dir), 'zip')
+        if server_dir.exists():
+            server_dir.rename(old_dir_aside)
+            moved_old_dir = True
+        tmp_dir.rename(server_dir)
+    except Exception:
+        # If we already moved the old directory aside but the final swap
+        # failed, put it back rather than leaving the server with nothing.
+        if moved_old_dir and not server_dir.exists():
+            old_dir_aside.rename(server_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    else:
+        if moved_old_dir:
+            shutil.rmtree(old_dir_aside, ignore_errors=True)
+
+
+def delete_backup(server, filename):
+    _validate_backup_filename(filename)
+    backup_path = settings.BACKUPS_DIR / f'server_{server.id}' / filename
+    backup_path.unlink(missing_ok=True)
+    Backup.objects.filter(server=server, filename=filename).delete()
