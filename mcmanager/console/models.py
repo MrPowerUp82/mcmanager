@@ -72,3 +72,23 @@ class Server(models.Model):
                     f'server "{conflict.name}" (port={conflict.port}, rcon_port={conflict.rcon_port}).'
                 ),
             })
+
+
+class JarDownload(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('downloading', 'Downloading'),
+        ('done', 'Done'),
+        ('error', 'Error'),
+    ]
+
+    provider = models.CharField(max_length=20)
+    version = models.CharField(max_length=50)
+    filename = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.provider} {self.version} ({self.status})'

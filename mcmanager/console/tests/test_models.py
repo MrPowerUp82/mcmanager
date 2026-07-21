@@ -62,3 +62,23 @@ def test_clean_allows_non_colliding_ports(server_type):
     second = Server(name="Second", jar_template="paper.jar", port=25575, type=server_type)
 
     second.full_clean()
+
+
+from mcmanager.console.models import JarDownload
+
+
+@pytest.mark.django_db
+def test_jar_download_defaults_to_pending_status():
+    download = JarDownload.objects.create(provider="mojang", version="1.20.4")
+
+    assert download.status == "pending"
+    assert download.filename == ""
+    assert download.error_message == ""
+
+
+@pytest.mark.django_db
+def test_jar_download_str_includes_provider_and_version():
+    download = JarDownload.objects.create(provider="paper", version="1.20.4")
+
+    assert "paper" in str(download)
+    assert "1.20.4" in str(download)
