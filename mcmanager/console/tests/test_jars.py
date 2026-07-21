@@ -84,6 +84,61 @@ def test_start_download_records_error_when_provider_raises(settings, tmp_path):
     assert 'Unknown version' in result.error_message
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize('unsafe_filename', ['../evil.jar', 'subdir/evil.jar', '..\\evil.jar'])
+def test_start_download_rejects_unsafe_provider_filename(settings, tmp_path, unsafe_filename):
+    settings.JAR_DIR = tmp_path / 'jar'
+    settings.JAR_DIR.mkdir()
+
+    source_file = tmp_path / 'source.jar'
+    content = b'fake jar bytes for testing'
+    source_file.write_bytes(content)
+    expected_hash = hashlib.sha256(content).hexdigest()
+
+    fake_info = DownloadInfo(
+        url=source_file.as_uri(),
+        filename=unsafe_filename,
+        expected_hash=expected_hash,
+        hash_algorithm='sha256',
+    )
+    with patch.object(jars.PROVIDERS['paper'], 'get_download_info', return_value=fake_info):
+        download = jars.start_download('paper', '1.20.4')
+        result = _wait_for_terminal_status(download.id)
+
+    assert result.status == 'error'
+    assert 'filename' in result.error_message.lower()
+    # Nothing should have been written anywhere, including outside JAR_DIR.
+    assert set(tmp_path.iterdir()) == {source_file, settings.JAR_DIR}
+    assert list(settings.JAR_DIR.iterdir()) == []
+
+
+@pytest.mark.django_db(transaction=True)
+def test_downloaded_jar_becomes_visible_via_get_jar_files(settings, tmp_path):
+    from mcmanager.console.models import get_jar_files
+
+    settings.JAR_DIR = tmp_path / 'jar'
+    settings.JAR_DIR.mkdir()
+
+    source_file = tmp_path / 'source.jar'
+    content = b'fake jar bytes for testing'
+    source_file.write_bytes(content)
+    expected_hash = hashlib.sha256(content).hexdigest()
+
+    fake_info = DownloadInfo(
+        url=source_file.as_uri(),
+        filename='visible-server.jar',
+        expected_hash=expected_hash,
+        hash_algorithm='sha256',
+    )
+    with patch.object(jars.PROVIDERS['mojang'], 'get_download_info', return_value=fake_info):
+        download = jars.start_download('mojang', '1.20.4')
+        result = _wait_for_terminal_status(download.id)
+
+    assert result.status == 'done'
+    jar_files = get_jar_files()
+    assert ('visible-server.jar', 'visible-server.jar') in jar_files
+
+
 @pytest.mark.django_db
 def test_list_versions_delegates_to_the_named_provider():
     from mcmanager.console.services.jar_providers.base import VersionInfo
