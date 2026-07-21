@@ -1,11 +1,14 @@
 """Background supervisor: restarts servers that crashed unexpectedly and
 triggers scheduled daily backups. Runs as a single daemon thread started
 explicitly by `mcmanager run` (never during migrate/shell/tests)."""
+import logging
 import threading
 from datetime import datetime, timezone
 
 from ..models import Server
 from . import backups, process
+
+logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 30
 MAX_RESTART_ATTEMPTS = 3
@@ -31,7 +34,10 @@ def _tick():
             _check_auto_restart(server)
             _check_scheduled_backup(server)
         except Exception:
-            pass
+            logger.exception(
+                'Unexpected error while checking server %s (%s) in supervisor tick',
+                server.id, server.name,
+            )
 
 
 def _check_auto_restart(server):
@@ -44,6 +50,10 @@ def _check_auto_restart(server):
         return
 
     if server.consecutive_restart_failures >= MAX_RESTART_ATTEMPTS:
+        logger.warning(
+            'Disabling auto-restart for server %s (%s) after %d consecutive failed restart attempts',
+            server.id, server.name, server.consecutive_restart_failures,
+        )
         server.auto_restart_enabled = False
         server.save(update_fields=['auto_restart_enabled'])
         return
@@ -56,6 +66,11 @@ def _check_auto_restart(server):
             server.save(update_fields=['consecutive_restart_failures'])
         return
     except Exception:
+        logger.warning(
+            'Restart attempt failed for server %s (%s), attempt %d of %d',
+            server.id, server.name, server.consecutive_restart_failures + 1, MAX_RESTART_ATTEMPTS,
+            exc_info=True,
+        )
         server.consecutive_restart_failures += 1
         server.save(update_fields=['consecutive_restart_failures'])
         return

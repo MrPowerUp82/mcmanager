@@ -93,7 +93,7 @@ def test_tick_resets_failure_counter_when_server_is_running(provisioned_server):
 
 
 @pytest.mark.django_db
-def test_tick_disables_auto_restart_after_repeated_failures(provisioned_server, settings):
+def test_tick_disables_auto_restart_after_repeated_failures(provisioned_server, settings, caplog):
     server = provisioned_server
     server.auto_restart_enabled = True
     server.desired_running = True
@@ -105,10 +105,15 @@ def test_tick_disables_auto_restart_after_repeated_failures(provisioned_server, 
         server.refresh_from_db()
         assert server.auto_restart_enabled is True
 
-    supervisor._tick()
+    with caplog.at_level("WARNING", logger="mcmanager.console.services.supervisor"):
+        supervisor._tick()
 
     server.refresh_from_db()
     assert server.auto_restart_enabled is False
+    assert any(
+        record.levelname == "WARNING" and server.name in record.getMessage()
+        for record in caplog.records
+    )
 
 
 @pytest.mark.django_db
