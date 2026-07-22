@@ -20,47 +20,16 @@ if "mcmanager.settings" in sys.modules:
     from django.utils.functional import empty
     settings._wrapped = empty
 
-# Python 3.14 compatibility shim: Django 5.1's BaseContext.__copy__
-# (django/template/context.py) does `duplicate = copy(super())` to get a
-# shallow copy of self while bypassing dict's own __copy__ (BaseContext
-# isn't a dict subclass, but relies on this idiom to allocate a bare
-# instance). Python 3.14 changed `copy.copy()`'s handling of `super`
-# proxy objects, so this now raises
-# `AttributeError: 'super' object has no attribute 'dicts' and no
-# __dict__ for setting new attributes` any time Django renders a
-# Template while the test Client's `template_rendered` signal
-# instrumentation is active (django.test.utils.instrumented_test_render
-# copies the Context for every template render during a test-client
-# request). Reproduced independently of Django with a minimal
-# `copy(super())` snippet, so this is an upstream Python 3.14 regression,
-# not an application bug. Django 5.1.15 (latest 5.1.x as of writing) does
-# not include a fix; only affects tests that cause a template to render
-# through the Django test Client (e.g. CSRF-failure pages, any 200 HTML
-# response). Patch __copy__ to a version that doesn't rely on the broken
-# idiom.
-# TODO: remove once either (a) Django ships a fix for the copy(super())
-# idiom under Python 3.14+, or (b) this project's supported Python floor
-# is raised past whatever version fixes it — check `python --version` and
-# retest by deleting this block before removing it.
-from django.template.context import BaseContext  # noqa: E402
-
-
-def _base_context_copy(self):
-    duplicate = object.__new__(self.__class__)
-    duplicate.__dict__.update(self.__dict__)
-    duplicate.dicts = self.dicts[:]
-    return duplicate
-
-
-BaseContext.__copy__ = _base_context_copy
-
-# Known residual gap: `mcmanager.console.apps.ConsoleConfig.ready()` runs a
-# DB query/save loop as a side effect of Django app-registry population,
-# which pytest-django triggers inside `pytest_load_initial_conftests` — i.e.
-# before this file's env-var fix above has any chance to run. That one-time
-# `ready()` call still reads/writes whatever `MCMANAGER_DATA_DIR` resolves to
-# at that point (the real ~/.mcmanager if unset in the OS environment), not
-# the isolated temp dir. No fix is possible from conftest.py alone (confirmed
-# by removing the ini-declared DJANGO_SETTINGS_MODULE, which broke Django app
-# loading entirely instead). Fixing this requires changing what
-# ConsoleConfig.ready() does, tracked separately — out of scope here.
+# The Python 3.14 / Django 5.1 BaseContext.__copy__ compatibility shim that
+# used to live here now lives in `mcmanager/console/compat.py`, applied by
+# `ConsoleConfig.ready()` (see its docstring for the full explanation) — it
+# was originally patched here because it only affected the test Client, but
+# the same bug turned out to break real (non-test) requests too, such as
+# every Django admin change-list page, so it needed to apply at Django
+# startup in general, not just under pytest. `ready()` already runs during
+# `pytest_load_initial_conftests` (before this file's body executes), so no
+# duplicate patch is needed here anymore.
+#
+# `ConsoleConfig.ready()` itself no longer has a DB-touching side effect
+# (removed in Phase 2 along with the `Server.status` cache field), so unlike
+# the env-var fix above, there's nothing here left to work around for it.
