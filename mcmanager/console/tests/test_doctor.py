@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -68,3 +69,29 @@ def test_check_data_directories_fails_when_one_unwritable(settings, tmp_path):
 
     assert result['passed'] is False
     assert 'RUN_DIR' in result['message']
+
+
+@pytest.mark.django_db
+def test_check_migrations_passes_when_up_to_date():
+    result = doctor.check_migrations()
+    assert result['name'] == 'Migrações'
+    assert result['passed'] is True
+
+
+@pytest.mark.django_db
+def test_check_migrations_fails_when_pending():
+    fake_migration = SimpleNamespace(app_label='console', name='0011_fake')
+    with patch('mcmanager.console.services.doctor.MigrationExecutor') as mock_executor_cls:
+        mock_executor = mock_executor_cls.return_value
+        mock_executor.loader.graph.leaf_nodes.return_value = []
+        mock_executor.migration_plan.return_value = [(fake_migration, False)]
+        result = doctor.check_migrations()
+
+    assert result['passed'] is False
+    assert 'console.0011_fake' in result['message']
+
+
+@pytest.mark.django_db
+def test_run_checks_returns_all_three_checks_in_order():
+    results = doctor.run_checks()
+    assert [r['name'] for r in results] == ['Java', 'Diretórios de dados', 'Migrações']

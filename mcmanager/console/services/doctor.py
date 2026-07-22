@@ -6,6 +6,8 @@ import re
 import subprocess
 
 from django.conf import settings
+from django.db import connections
+from django.db.migrations.executor import MigrationExecutor
 
 JAVA_VERSION_PATTERN = re.compile(r'version "([^"]+)"')
 JAVA_CHECK_TIMEOUT_SECONDS = 5
@@ -64,3 +66,17 @@ def check_data_directories():
             'message': f'Sem permissão de escrita em: {", ".join(unwritable)}',
         }
     return {'name': 'Diretórios de dados', 'passed': True, 'message': 'Todos os diretórios de dados são graváveis'}
+
+
+def check_migrations():
+    connection = connections['default']
+    executor = MigrationExecutor(connection)
+    plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+    if plan:
+        pending = ', '.join(f'{migration.app_label}.{migration.name}' for migration, _ in plan)
+        return {'name': 'Migrações', 'passed': False, 'message': f'Migrações pendentes: {pending}'}
+    return {'name': 'Migrações', 'passed': True, 'message': 'Banco de dados em dia'}
+
+
+def run_checks():
+    return [check_java(), check_data_directories(), check_migrations()]
