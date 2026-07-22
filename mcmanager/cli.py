@@ -125,7 +125,7 @@ def main():
         results = doctor.run_checks()
         all_passed = True
         for result in results:
-            symbol = "✓" if result['passed'] else "✗"
+            symbol = "OK" if result['passed'] else "FAIL"
             print(f"[{symbol}] {result['name']}: {result['message']}")
             if not result['passed']:
                 all_passed = False

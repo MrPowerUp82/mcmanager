@@ -19,9 +19,9 @@ def test_doctor_command_exits_zero_when_all_checks_pass(capsys):
 
     assert exc_info.value.code == 0
     captured = capsys.readouterr()
-    assert '[✓] Java: Java 17.0.9 encontrado em /usr/bin/java' in captured.out
-    assert '[✓] Diretórios de dados' in captured.out
-    assert '[✓] Migrações' in captured.out
+    assert '[OK] Java: Java 17.0.9 encontrado em /usr/bin/java' in captured.out
+    assert '[OK] Diretórios de dados' in captured.out
+    assert '[OK] Migrações' in captured.out
 
 
 def test_doctor_command_exits_one_when_a_check_fails(capsys):
@@ -37,4 +37,26 @@ def test_doctor_command_exits_one_when_a_check_fails(capsys):
 
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
-    assert '[✗] Java: Java não encontrado em: /fake/java' in captured.out
+    assert '[FAIL] Java: Java não encontrado em: /fake/java' in captured.out
+
+
+def test_doctor_command_output_is_cp1252_encodable(capsys):
+    """Regression test for the Windows default console (cp1252) crash.
+
+    A bare `.encode('cp1252')` call raises UnicodeEncodeError if the output
+    contains characters that cp1252 cannot represent (e.g. the Unicode
+    checkmark/cross symbols this command used to print). Letting that
+    exception propagate is sufficient for pytest to report a clear failure,
+    so no extra assertion machinery is needed.
+    """
+    fake_results = [
+        {'name': 'Java', 'passed': True, 'message': 'Java 17.0.9 encontrado em /usr/bin/java'},
+        {'name': 'Diretórios de dados', 'passed': False, 'message': 'Diretório não gravável'},
+    ]
+    with patch.object(sys, 'argv', ['mcmanager', 'doctor']), \
+         patch('mcmanager.console.services.doctor.run_checks', return_value=fake_results):
+        with pytest.raises(SystemExit):
+            cli.main()
+
+    captured = capsys.readouterr()
+    captured.out.encode('cp1252')
