@@ -1,6 +1,7 @@
 """Environment diagnostics for `mcmanager doctor`. Each check is a small,
 independently testable function returning a dict; run_checks() aggregates
 them so the CLI only needs to print and decide the exit code."""
+import os
 import re
 import subprocess
 
@@ -38,3 +39,28 @@ def check_java():
     if match:
         return {'name': 'Java', 'passed': True, 'message': f'Java {match.group(1)} encontrado em {java_path}'}
     return {'name': 'Java', 'passed': True, 'message': f'Java encontrado em {java_path} (versão não identificada)'}
+
+
+DATA_DIRECTORIES = {
+    'JAR_DIR': lambda: settings.JAR_DIR,
+    'SERVERS_DIR': lambda: settings.SERVERS_DIR,
+    'CONFIGS_DIR': lambda: settings.CONFIGS_DIR,
+    'RUN_DIR': lambda: settings.RUN_DIR,
+    'BACKUPS_DIR': lambda: settings.BACKUPS_DIR,
+}
+
+
+def check_data_directories():
+    unwritable = []
+    for label, get_path in DATA_DIRECTORIES.items():
+        path = get_path()
+        if not os.access(path, os.W_OK):
+            unwritable.append(f'{label} ({path})')
+
+    if unwritable:
+        return {
+            'name': 'Diretórios de dados',
+            'passed': False,
+            'message': f'Sem permissão de escrita em: {", ".join(unwritable)}',
+        }
+    return {'name': 'Diretórios de dados', 'passed': True, 'message': 'Todos os diretórios de dados são graváveis'}

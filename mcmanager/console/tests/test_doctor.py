@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from mcmanager.console.services import doctor
 
 
@@ -36,3 +38,33 @@ def test_check_java_fails_when_nonzero_exit(settings):
     with patch('mcmanager.console.services.doctor.subprocess.run', return_value=fake_result):
         result = doctor.check_java()
     assert result['passed'] is False
+
+
+@pytest.mark.django_db
+def test_check_data_directories_passes_when_all_writable(settings, tmp_path):
+    for label in ['JAR_DIR', 'SERVERS_DIR', 'CONFIGS_DIR', 'RUN_DIR', 'BACKUPS_DIR']:
+        directory = tmp_path / label.lower()
+        directory.mkdir()
+        setattr(settings, label, directory)
+
+    result = doctor.check_data_directories()
+
+    assert result['name'] == 'Diretórios de dados'
+    assert result['passed'] is True
+
+
+@pytest.mark.django_db
+def test_check_data_directories_fails_when_one_unwritable(settings, tmp_path):
+    for label in ['JAR_DIR', 'SERVERS_DIR', 'CONFIGS_DIR', 'RUN_DIR', 'BACKUPS_DIR']:
+        directory = tmp_path / label.lower()
+        directory.mkdir()
+        setattr(settings, label, directory)
+
+    def fake_access(path, mode):
+        return str(path) != str(settings.RUN_DIR)
+
+    with patch('mcmanager.console.services.doctor.os.access', side_effect=fake_access):
+        result = doctor.check_data_directories()
+
+    assert result['passed'] is False
+    assert 'RUN_DIR' in result['message']
