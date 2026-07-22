@@ -43,6 +43,21 @@ Por padrão, todos os dados do painel ficam armazenados de forma isolada na home
 - `~/.mcmanager/configs/` (Onde fica o `server.properties` padrão)
 - `~/.mcmanager/staticfiles/` (Arquivos estáticos compilados do painel)
 
+### Diagnóstico: servidor liga e desliga sozinho (ou não fica "ON")
+
+Se você der start num servidor e ele aparecer "ON" por um instante e voltar pra "OFF" (ou nunca chegar a ficar "ON"), o processo do Java/Minecraft morreu logo depois de iniciar. Causas comuns:
+
+* Versão do Java incompatível com o `.jar` configurado (ex: jar exige Java 17+, mas `MCMANAGER_JAVA_BIN` aponta pra um Java 8).
+* `eula.txt` não aceito (o mcmanager já cria esse arquivo automaticamente ao provisionar o servidor, mas confira se não foi apagado).
+* Arquivo `.jar` corrompido ou incompatível com o sistema.
+* Memória (`memory_limit`) configurada baixa/alta demais pro que a VPS suporta.
+* Se "Reinício automático" estiver ativado pro servidor: o supervisor tenta religar sozinho até 3 vezes antes de desistir e desativar o reinício automático — o padrão "ON por 1s, OFF" repetido algumas vezes é esse ciclo de tentativas.
+
+**Onde olhar:**
+* **Log do próprio Minecraft**: `~/.mcmanager/servers/server_<id>/logs/latest.log`, visível ao vivo na página do console do servidor (`/console/<id>/`). Só existe se o Minecraft chegou a inicializar o próprio logger antes de morrer — em falhas muito cedo (ex: Java incompatível), esse arquivo pode não ter nada útil ou nem existir.
+* **Log do supervisor** (reinício automático): tentativas de religar e a desativação após 3 falhas são registradas via `logging` do Python, mas **só aparecem no terminal onde `mcmanager run` está rodando** — não são salvos em nenhum arquivo, e se perdem ao fechar o terminal.
+* **Limitação atual conhecida**: o mcmanager hoje descarta a saída (stdout/stderr) do processo Java diretamente — se o servidor morrer antes de escrever no próprio `logs/latest.log`, não sobra nenhum diagnóstico salvo em lugar nenhum, nem no painel nem em arquivo. Rodar `mcmanager doctor` ajuda a descartar causas comuns (Java ausente/errado, diretórios sem permissão, banco de dados desatualizado) antes de investigar mais a fundo.
+
 ### Customizações por Variáveis de Ambiente
 
 Você pode ajustar o comportamento do painel definindo variáveis de ambiente antes de executar o comando `mcmanager`:
