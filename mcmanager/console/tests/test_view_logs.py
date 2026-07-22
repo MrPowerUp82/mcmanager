@@ -84,7 +84,7 @@ def test_view_logs_missing_file_returns_error(settings, staff_client, tmp_path):
 
     resp = staff_client.get(f"/console/view_logs/{server.id}")
 
-    assert resp.status_code == 200
+    assert resp.status_code == 404
     body = resp.json()
     assert body["status"] == "error"
     assert body["message"] == "Log file not found"

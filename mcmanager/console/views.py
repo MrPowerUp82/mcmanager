@@ -4,6 +4,7 @@ from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
+from .json_utils import json_error
 from .models import Server
 from .services import dashboard, process, rcon
 
@@ -28,9 +29,9 @@ def start_server(request, id):
         server.save(update_fields=['desired_running', 'consecutive_restart_failures'])
         return JsonResponse({'status': 'success', 'message': 'Server started'})
     except process.AlreadyRunningError:
-        return JsonResponse({'status': 'error', 'message': 'Server is already running'})
+        return json_error('Server is already running', status=409)
     except process.JavaNotFoundError as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
+        return json_error(str(e), status=503)
 
 
 @staff_member_required
@@ -53,11 +54,11 @@ def stop_server(request, id):
         server.save(update_fields=['desired_running'])
         return JsonResponse({'status': 'success', 'message': 'Server stopped'})
     except process.ProcessNotRunningError:
-        return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+        return json_error('Server is not running', status=409)
     except process.StopTimeoutError as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
+        return json_error(str(e), status=504)
     except rcon.RconError as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
+        return json_error(str(e), status=502)
 
 
 @staff_member_required
@@ -72,7 +73,7 @@ def view_logs(request, id):
         offset = 0
 
     if not log_path.exists():
-        return JsonResponse({'status': 'error', 'message': 'Log file not found'})
+        return json_error('Log file not found', status=404)
 
     file_size = log_path.stat().st_size
     if offset > file_size:
@@ -95,14 +96,14 @@ def send_command(request, id):
     server = Server.objects.get(id=id)
     command = request.POST.get('command')
     if not command:
-        return JsonResponse({'status': 'error', 'message': 'No command provided'})
+        return json_error('No command provided', status=400)
     try:
         response = process.send_command(server, command)
         return JsonResponse({'status': 'success', 'message': response or 'Command sent'})
     except process.ProcessNotRunningError:
-        return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+        return json_error('Server is not running', status=409)
     except rcon.RconError as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
+        return json_error(str(e), status=502)
 
 
 @staff_member_required
@@ -112,7 +113,7 @@ def get_server_stats(request, id):
         stats = process.get_stats(server)
         return JsonResponse({'status': 'success', **stats})
     except process.ProcessNotRunningError:
-        return JsonResponse({'status': 'error', 'message': 'Server is not running'})
+        return json_error('Server is not running', status=409)
 
 
 def _serialize_dashboard_entries(entries):

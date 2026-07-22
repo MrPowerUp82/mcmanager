@@ -87,7 +87,7 @@ def test_start_server_already_running_returns_error(staff_client, provisioned_se
     staff_client.post(f"/console/start_server/{server.id}")
     try:
         resp = staff_client.post(f"/console/start_server/{server.id}")
-        assert resp.status_code == 200
+        assert resp.status_code == 409
         assert resp.json()["status"] == "error"
     finally:
         process.force_stop(server)
@@ -96,7 +96,7 @@ def test_start_server_already_running_returns_error(staff_client, provisioned_se
 @pytest.mark.django_db
 def test_stop_server_when_not_running_returns_error(staff_client, provisioned_server):
     resp = staff_client.post(f"/console/stop_server/{provisioned_server.id}")
-    assert resp.status_code == 200
+    assert resp.status_code == 409
     assert resp.json()["status"] == "error"
 
 
@@ -106,7 +106,7 @@ def test_send_command_without_command_param_returns_clean_error(staff_client, pr
     staff_client.post(f"/console/start_server/{server.id}")
     try:
         resp = staff_client.post(f"/console/send_command/{server.id}", {})
-        assert resp.status_code == 200
+        assert resp.status_code == 400
         body = resp.json()
         assert body["status"] == "error"
     finally:
