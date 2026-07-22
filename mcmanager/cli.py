@@ -23,7 +23,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True, help="Subcomando a executar")
 
     # Comando init
-    init_parser = subparsers.add_parser("init", help="Inicializa o diretório de dados, banco e arquivos padrões")
+    subparsers.add_parser("init", help="Inicializa o diretório de dados, banco e arquivos padrões")
 
     # Comando run
     run_parser = subparsers.add_parser("run", help="Inicia o servidor web do painel")
@@ -31,15 +31,15 @@ def main():
     run_parser.add_argument("--port", type=int, default=8000, help="Porta para escutar (padrão: 8000)")
 
     # Comando createsuperuser
-    createsuperuser_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "createsuperuser", help="Cria um usuário administrador para o painel"
     )
 
     # Comando shell
-    shell_parser = subparsers.add_parser("shell", help="Inicia o console interativo do Django")
+    subparsers.add_parser("shell", help="Inicia o console interativo do Django")
 
     # Comando doctor
-    doctor_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "doctor", help="Diagnostica o ambiente (Java, diretórios, banco de dados)"
     )
 

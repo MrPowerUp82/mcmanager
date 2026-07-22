@@ -1,6 +1,6 @@
 import pytest
 
-from mcmanager.console.models import Server, Type
+from mcmanager.console.models import Server
 from mcmanager.console.services import process, provisioning
 from mcmanager.console.tests.fixtures.fake_java_binary import create_fake_java_binary
 
