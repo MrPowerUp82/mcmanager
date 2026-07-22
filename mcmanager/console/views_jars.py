@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
+from .json_utils import json_error
 from .models import JarDownload
 from .services import jars
 
@@ -17,11 +18,11 @@ def jars_page(request):
 @staff_member_required
 def list_jar_versions(request, provider):
     if provider not in VALID_PROVIDERS:
-        return JsonResponse({'status': 'error', 'message': f'Unknown provider: {provider}'})
+        return json_error(f'Unknown provider: {provider}', status=400)
     try:
         versions = jars.list_versions(provider)
     except Exception as exc:
-        return JsonResponse({'status': 'error', 'message': str(exc)})
+        return json_error(str(exc), status=502)
     return JsonResponse({
         'status': 'success',
         'versions': [{'version': v.version, 'label': v.label} for v in versions],
@@ -34,7 +35,7 @@ def start_jar_download(request):
     provider = request.POST.get('provider')
     version = request.POST.get('version')
     if provider not in VALID_PROVIDERS or not version:
-        return JsonResponse({'status': 'error', 'message': 'Invalid provider or version'})
+        return json_error('Invalid provider or version', status=400)
     download = jars.start_download(provider, version)
     return JsonResponse({'status': 'success', 'download_id': download.id})
 
@@ -44,7 +45,7 @@ def jar_download_status(request, download_id):
     try:
         download = JarDownload.objects.get(id=download_id)
     except JarDownload.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Download not found'})
+        return json_error('Download not found', status=404)
     return JsonResponse({
         'status': 'success',
         'download_status': download.status,

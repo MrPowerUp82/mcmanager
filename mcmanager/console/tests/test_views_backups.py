@@ -75,7 +75,7 @@ def test_backup_status_view_returns_current_state(staff_client, server):
 @pytest.mark.django_db
 def test_backup_status_view_returns_error_for_unknown_id(staff_client):
     resp = staff_client.get("/console/backups/status/999999")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
     assert resp.json()["status"] == "error"
 
 
@@ -97,7 +97,7 @@ def test_restore_backup_view_rejects_when_server_running(staff_client, server):
     ):
         resp = staff_client.post(f"/console/backups/{server.id}/restore", {"filename": "20260101T000000Z.zip"})
 
-    assert resp.status_code == 200
+    assert resp.status_code == 409
     assert resp.json()["status"] == "error"
 
 
@@ -109,7 +109,7 @@ def test_restore_backup_view_handles_corrupt_archive(staff_client, server):
     ):
         resp = staff_client.post(f"/console/backups/{server.id}/restore", {"filename": "20260101T000000Z.zip"})
 
-    assert resp.status_code == 200
+    assert resp.status_code == 409
     body = resp.json()
     assert body["status"] == "error"
     assert "corrupt archive" in body["message"]
@@ -139,7 +139,7 @@ def test_delete_backup_view_handles_os_error(staff_client, server):
     ):
         resp = staff_client.post(f"/console/backups/{server.id}/delete", {"filename": "20260101T000000Z.zip"})
 
-    assert resp.status_code == 200
+    assert resp.status_code == 409
     body = resp.json()
     assert body["status"] == "error"
     assert "disk full" in body["message"]

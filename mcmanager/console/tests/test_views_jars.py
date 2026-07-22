@@ -47,7 +47,7 @@ def test_list_jar_versions_returns_clean_error_on_provider_failure(staff_client)
     ):
         resp = staff_client.get("/console/jars/versions/mojang")
 
-    assert resp.status_code == 200
+    assert resp.status_code == 502
     body = resp.json()
     assert body["status"] == "error"
 
@@ -75,7 +75,7 @@ def test_start_jar_download_requires_post(staff_client):
 @pytest.mark.django_db
 def test_start_jar_download_rejects_unknown_provider(staff_client):
     resp = staff_client.post("/console/jars/download", {"provider": "bogus", "version": "1.20.4"})
-    assert resp.status_code == 200
+    assert resp.status_code == 400
     assert resp.json()["status"] == "error"
 
 
@@ -97,5 +97,5 @@ def test_jar_download_status_returns_current_state(staff_client):
 @pytest.mark.django_db
 def test_jar_download_status_returns_error_for_unknown_id(staff_client):
     resp = staff_client.get("/console/jars/download/999999")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
     assert resp.json()["status"] == "error"

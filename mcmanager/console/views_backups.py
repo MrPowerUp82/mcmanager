@@ -2,6 +2,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
+from .json_utils import json_error
 from .models import Backup, Server
 from .services import backups
 
@@ -25,7 +26,7 @@ def backup_status_view(request, backup_id):
     try:
         backup = Backup.objects.get(id=backup_id)
     except Backup.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Backup not found'})
+        return json_error('Backup not found', status=404)
     return JsonResponse({
         'status': 'success',
         'backup_status': backup.status,
@@ -40,11 +41,11 @@ def restore_backup_view(request, server_id):
     server = Server.objects.get(id=server_id)
     filename = request.POST.get('filename')
     if not filename:
-        return JsonResponse({'status': 'error', 'message': 'No backup filename provided'})
+        return json_error('No backup filename provided', status=400)
     try:
         backups.start_restore(server, filename)
     except Exception as exc:
-        return JsonResponse({'status': 'error', 'message': str(exc)})
+        return json_error(str(exc), status=409)
     return JsonResponse({'status': 'success', 'message': 'Backup restored'})
 
 
@@ -54,9 +55,9 @@ def delete_backup_view(request, server_id):
     server = Server.objects.get(id=server_id)
     filename = request.POST.get('filename')
     if not filename:
-        return JsonResponse({'status': 'error', 'message': 'No backup filename provided'})
+        return json_error('No backup filename provided', status=400)
     try:
         backups.delete_backup(server, filename)
     except Exception as exc:
-        return JsonResponse({'status': 'error', 'message': str(exc)})
+        return json_error(str(exc), status=409)
     return JsonResponse({'status': 'success'})
