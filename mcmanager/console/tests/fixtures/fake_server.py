@@ -54,7 +54,15 @@ def _send_packet(sock, request_id, packet_type, payload):
 
 def _serve_rcon(port, password, stop_event):
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # SO_REUSEADDR only allows rebinding a port stuck in TIME_WAIT on POSIX;
+    # on Windows it also lets a new socket bind over one that's actively
+    # listening, so an orphaned fake_server from an earlier test run would
+    # silently keep answering RCON connections alongside (or instead of) the
+    # new one, with its old password, instead of the bind failing cleanly.
+    # Match the same platform-conditional treatment as
+    # process._check_port_available().
+    if os.name == 'posix':
+        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind(('127.0.0.1', port))
     server_sock.listen(1)
     server_sock.settimeout(1.0)
