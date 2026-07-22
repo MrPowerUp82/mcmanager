@@ -3,7 +3,7 @@
     "tailwindcss": "^3.4.4"
   },
   "scripts": {
-    "build:css": "tailwindcss build static/css/styles.css -o static/css/tailwind.css"
+    "build:css": "tailwindcss build mcmanager/console/static/css/styles.css -o mcmanager/console/static/css/tailwind.css"
   }
   
 }
