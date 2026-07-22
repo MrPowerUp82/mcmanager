@@ -1,11 +1,11 @@
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpRequest, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from .models import Server
-from .services import process, rcon
+from .services import dashboard, process, rcon
 
 LOG_FILE = 'logs/latest.log'
 
@@ -115,10 +115,29 @@ def get_server_stats(request, id):
         return JsonResponse({'status': 'error', 'message': 'Server is not running'})
 
 
+def _serialize_dashboard_entries(entries):
+    return [
+        {
+            'id': entry['server'].id,
+            'name': entry['server'].name,
+            'running': entry['running'],
+            'stats_available': entry.get('stats_available', False),
+            'cpu_usage': entry.get('cpu_usage'),
+            'memory_usage': entry.get('memory_usage'),
+            'players_available': entry.get('players_available', False),
+            'players_raw': entry.get('players_raw'),
+        }
+        for entry in entries
+    ]
+
+
 @staff_member_required
 def home(request: HttpRequest):
-    if request.method == 'POST':
-        server_id = request.POST.get('server_id')
-        return redirect('index', id=server_id)
-    ctx = {"servers": [(s, process.is_running(s)) for s in Server.objects.all()]}
-    return render(request, 'index.html', ctx)
+    servers = _serialize_dashboard_entries(dashboard.get_dashboard_data())
+    return render(request, 'index.html', {'initial_servers': servers})
+
+
+@staff_member_required
+def dashboard_data(request: HttpRequest):
+    entries = dashboard.get_dashboard_data()
+    return JsonResponse({'status': 'success', 'servers': _serialize_dashboard_entries(entries)})

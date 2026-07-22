@@ -3,6 +3,7 @@ from . import views, views_backups, views_jars
 
 urlpatterns = [
     path('<int:id>', views.index, name='index'),
+    path('dashboard/data/', views.dashboard_data, name='dashboard_data'),
     path('start_server/<int:id>', views.start_server, name='start_server'),
     path('stop_server/<int:id>', views.stop_server, name='stop_server'),
     path('force_stop_server/<int:id>',

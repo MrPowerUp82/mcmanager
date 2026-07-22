@@ -22,25 +22,15 @@ def staff_user(django_user_model):
 
 
 @pytest.mark.django_db
-def test_home_shows_off_for_non_running_server(client, server, staff_user):
+def test_home_renders_a_card_per_server(client, server, staff_user):
     client.force_login(staff_user)
-    with patch("mcmanager.console.views.process.is_running", return_value=False):
+    with patch(
+        "mcmanager.console.views.dashboard.get_dashboard_data",
+        return_value=[{'server': server, 'running': False}],
+    ):
         response = client.get(reverse("home"))
     assert response.status_code == 200
-    content = response.content.decode()
-    assert server.name in content
-    assert "(OFF)" in content
-
-
-@pytest.mark.django_db
-def test_home_shows_on_for_running_server_using_live_process_state(client, server, staff_user):
-    client.force_login(staff_user)
-    with patch("mcmanager.console.views.process.is_running", return_value=True):
-        response = client.get(reverse("home"))
-    assert response.status_code == 200
-    content = response.content.decode()
-    assert server.name in content
-    assert "(ON)" in content
+    assert server.name in response.content.decode()
 
 
 def test_server_model_has_no_status_field():

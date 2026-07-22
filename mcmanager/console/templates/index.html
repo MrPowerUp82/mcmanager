@@ -7,39 +7,135 @@
         <title>Minecraft Console</title>
         <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}" />
         <link href="{% static 'css/tailwind.css' %}" rel="stylesheet" />
+        <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet" />
     </head>
     <body class="bg-gray-100 p-6">
         <div class="container mx-auto">
             <h1 class="text-3xl font-bold mb-4">Minecraft Servers</h1>
-            <form action="{% url 'home' %}" method="post">
-                {% csrf_token %}
-                <select type="text"
-                        name="server_id"
-                        id="server_id"
-                        placeholder="Enter command"
-                        required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                    <option value="">Escolha um server</option>
-                    {% for server, is_running in servers %}
-                        <option value="{{ server.id }}">
-                            {{ server.name }}
-                            {% if is_running %}
-                                (ON)
-                            {% else %}
-                                (OFF)
-                            {% endif %}
-                        </option>
-                    {% endfor %}
-                </select>
-                <button type="submit"
-                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">
-                    Abrir Console
-                </button>
-            </form>
-            <a href="{% url 'jars_page' %}" class="text-blue-500 hover:underline mt-4 inline-block">
+            <form>{% csrf_token %}</form>
+            <a href="{% url 'jars_page' %}" class="text-blue-500 hover:underline mb-4 inline-block">
                 Gerenciar jars
             </a>
+            <div id="dashboard-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </div>
-        <script></script>
+        {{ initial_servers|json_script:"initial-dashboard-data" }}
+        <script type="text/javascript" src="{% static 'js/toastify-js.js' %}"></script>
+        <script>
+            function getCsrfToken() {
+                return document.querySelector('[name=csrfmiddlewaretoken]').value;
+            }
+
+            function postJSON(url) {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken() }
+                }).then(response => response.json());
+            }
+
+            function create_toast(message, bgColor, textColor) {
+                Toastify({
+                    text: message,
+                    duration: 4000,
+                    newWindow: true,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    stopOnFocus: true,
+                    style: { background: bgColor, color: textColor },
+                }).showToast();
+            }
+
+            function parsePlayers(playersRaw) {
+                if (!playersRaw) {
+                    return null;
+                }
+                const match = playersRaw.match(/There are (\d+) of a max of (\d+) players online/);
+                if (!match) {
+                    return null;
+                }
+                return `${match[1]}/${match[2]}`;
+            }
+
+            function renderCard(entry) {
+                const statusBadge = entry.running
+                    ? '<span class="text-green-600 font-bold">ON</span>'
+                    : '<span class="text-red-600 font-bold">OFF</span>';
+
+                let statsHtml = '';
+                if (entry.running) {
+                    const cpuText = entry.stats_available ? `${entry.cpu_usage.toFixed(1)}%` : 'indisponível';
+                    const memText = entry.stats_available ? `${entry.memory_usage.toFixed(0)} MB` : 'indisponível';
+                    const playersText = entry.players_available ? (parsePlayers(entry.players_raw) || 'indisponível') : 'indisponível';
+                    statsHtml = `
+                        <p><strong>CPU:</strong> ${cpuText}</p>
+                        <p><strong>RAM:</strong> ${memText}</p>
+                        <p><strong>Jogadores:</strong> ${playersText}</p>
+                    `;
+                }
+
+                const startBtn = entry.running ? '' : `
+                    <button onclick="startServer(${entry.id})"
+                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded mr-2">
+                        Start
+                    </button>`;
+                const stopBtn = entry.running ? `
+                    <button onclick="stopServer(${entry.id})"
+                            class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded mr-2">
+                        Stop
+                    </button>` : '';
+
+                return `
+                    <div class="bg-white p-4 border rounded shadow-md" id="card-${entry.id}">
+                        <h2 class="text-xl font-bold mb-2">${entry.name} ${statusBadge}</h2>
+                        ${statsHtml}
+                        <div class="mt-4">
+                            ${startBtn}
+                            ${stopBtn}
+                            <a href="/console/${entry.id}"
+                               class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded inline-block">
+                                Abrir console
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function fetchDashboardData() {
+                fetch("{% url 'dashboard_data' %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status !== 'success') {
+                            return;
+                        }
+                        const container = document.getElementById('dashboard-cards');
+                        container.innerHTML = data.servers.map(renderCard).join('');
+                    });
+            }
+
+            function startServer(id) {
+                postJSON(`/console/start_server/${id}`)
+                    .then(data => {
+                        create_toast(data.message, 'green', 'white');
+                        fetchDashboardData();
+                    });
+            }
+
+            function stopServer(id) {
+                postJSON(`/console/stop_server/${id}`)
+                    .then(data => {
+                        create_toast(data.message, 'red', 'white');
+                        fetchDashboardData();
+                    });
+            }
+
+            const initialDataEl = document.getElementById('initial-dashboard-data');
+            if (initialDataEl) {
+                const initialServers = JSON.parse(initialDataEl.textContent);
+                document.getElementById('dashboard-cards').innerHTML = initialServers.map(renderCard).join('');
+            }
+
+            fetchDashboardData();
+            setInterval(fetchDashboardData, 5000);
+        </script>
     </body>
 </html>
