@@ -38,6 +38,11 @@ def main():
     # Comando shell
     shell_parser = subparsers.add_parser("shell", help="Inicia o console interativo do Django")
 
+    # Comando doctor
+    doctor_parser = subparsers.add_parser(
+        "doctor", help="Diagnostica o ambiente (Java, diretórios, banco de dados)"
+    )
+
     args = parser.parse_args()
 
     # 1. Obter e criar estrutura de dados do usuário
@@ -114,6 +119,17 @@ def main():
 
     elif args.command == "shell":
         call_command("shell")
+
+    elif args.command == "doctor":
+        from mcmanager.console.services import doctor
+        results = doctor.run_checks()
+        all_passed = True
+        for result in results:
+            symbol = "✓" if result['passed'] else "✗"
+            print(f"[{symbol}] {result['name']}: {result['message']}")
+            if not result['passed']:
+                all_passed = False
+        sys.exit(0 if all_passed else 1)
 
 if __name__ == "__main__":
     main()
