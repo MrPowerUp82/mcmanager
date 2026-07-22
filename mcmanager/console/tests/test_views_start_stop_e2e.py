@@ -1,3 +1,5 @@
+import socket
+
 import pytest
 
 from mcmanager.console.models import Server, Type
@@ -111,3 +113,19 @@ def test_send_command_without_command_param_returns_clean_error(staff_client, pr
         assert body["status"] == "error"
     finally:
         process.force_stop(server)
+
+
+@pytest.mark.django_db
+def test_start_server_port_in_use_returns_conflict(staff_client, provisioned_server):
+    server = provisioned_server
+    blocking_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    blocking_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    blocking_socket.bind(('0.0.0.0', server.port))
+    blocking_socket.listen(1)
+    try:
+        resp = staff_client.post(f"/console/start_server/{server.id}")
+        assert resp.status_code == 409
+        assert resp.json()["status"] == "error"
+        assert process.is_running(server) is False
+    finally:
+        blocking_socket.close()

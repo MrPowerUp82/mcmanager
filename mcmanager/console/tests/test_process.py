@@ -1,5 +1,6 @@
 import itertools
 import os
+import socket
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -192,3 +193,17 @@ def test_send_command_returns_rcon_response(server, fake_java):
 def test_send_command_raises_when_not_running(server):
     with pytest.raises(process.ProcessNotRunningError):
         process.send_command(server, "say hi")
+
+
+@pytest.mark.django_db
+def test_start_raises_port_in_use_error_when_port_is_occupied(server, fake_java):
+    blocking_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    blocking_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    blocking_socket.bind(('0.0.0.0', server.port))
+    blocking_socket.listen(1)
+    try:
+        with pytest.raises(process.PortInUseError):
+            process.start(server)
+        assert process.is_running(server) is False
+    finally:
+        blocking_socket.close()

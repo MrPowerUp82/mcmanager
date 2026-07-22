@@ -4,6 +4,7 @@ subprocess.Popen and a JSON state file under ~/.mcmanager/run/, so it works
 on both Linux and Windows and survives the panel process restarting."""
 import json
 import os
+import socket
 import subprocess
 from datetime import datetime, timezone
 
@@ -27,6 +28,11 @@ class JavaNotFoundError(Exception):
 
 class StopTimeoutError(Exception):
     """Raised by stop() when the process doesn't exit within the graceful-stop timeout."""
+
+
+class PortInUseError(Exception):
+    """Raised by start() when the server's configured port is already bound
+    by something else on this machine."""
 
 
 def _state_path(server):
@@ -75,9 +81,20 @@ def is_running(server):
     return (state.get('jar') or '') in cmdline
 
 
+def _check_port_available(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(('0.0.0.0', port))
+        except OSError as exc:
+            raise PortInUseError(f'Port {port} is already in use') from exc
+
+
 def start(server):
     if is_running(server):
         raise AlreadyRunningError(f'Server {server.id} is already running')
+
+    _check_port_available(server.port)
 
     server_dir = settings.SERVERS_DIR / f'server_{server.id}'
     cmd = [

@@ -32,6 +32,8 @@ def start_server(request, id):
         return json_error('Server is already running', status=409)
     except process.JavaNotFoundError as e:
         return json_error(str(e), status=503)
+    except process.PortInUseError as e:
+        return json_error(str(e), status=409)
 
 
 @staff_member_required
