@@ -129,13 +129,13 @@ def force_stop(server):
     _clear_state(server)
 
 
-def get_stats(server):
+def get_stats(server, cpu_interval=1):
     state = _read_state(server)
     if state is None or not is_running(server):
         raise ProcessNotRunningError(f'Server {server.id} is not running')
     try:
         process_handle = psutil.Process(state['pid'])
-        cpu_usage = process_handle.cpu_percent(interval=1)
+        cpu_usage = process_handle.cpu_percent(interval=cpu_interval)
         memory_info = process_handle.memory_info()
         memory_usage = memory_info.rss / (1024 * 1024)
         virtual_memory = psutil.virtual_memory()

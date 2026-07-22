@@ -123,6 +123,22 @@ def test_get_stats_returns_cpu_and_memory(server, fake_java):
 
 
 @pytest.mark.django_db
+def test_get_stats_passes_custom_cpu_interval_to_psutil(server, fake_java):
+    process.start(server)
+    try:
+        with patch("mcmanager.console.services.process.psutil.Process") as mock_process_cls:
+            mock_instance = mock_process_cls.return_value
+            mock_instance.cpu_percent.return_value = 12.5
+            mock_instance.memory_info.return_value.rss = 1024 * 1024 * 50
+            mock_instance.cmdline.return_value = ['java', '-jar', server.jar]
+            stats = process.get_stats(server, cpu_interval=0.2)
+            mock_instance.cpu_percent.assert_called_once_with(interval=0.2)
+            assert stats["cpu_usage"] == 12.5
+    finally:
+        process.force_stop(server)
+
+
+@pytest.mark.django_db
 def test_get_stats_raises_when_not_running(server):
     with pytest.raises(process.ProcessNotRunningError):
         process.get_stats(server)
