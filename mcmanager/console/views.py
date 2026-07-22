@@ -34,6 +34,8 @@ def start_server(request, id):
         return json_error(str(e), status=503)
     except process.PortInUseError as e:
         return json_error(str(e), status=409)
+    except process.JarMissingError as e:
+        return json_error(str(e), status=409)
 
 
 @staff_member_required
@@ -124,6 +126,7 @@ def _serialize_dashboard_entries(entries):
             'id': entry['server'].id,
             'name': entry['server'].name,
             'running': entry['running'],
+            'jar_missing': entry.get('jar_missing', False),
             'stats_available': entry.get('stats_available', False),
             'cpu_usage': entry.get('cpu_usage'),
             'memory_usage': entry.get('memory_usage'),

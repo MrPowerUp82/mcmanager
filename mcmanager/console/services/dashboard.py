@@ -25,6 +25,7 @@ def get_dashboard_data():
         {
             'server': s,
             'running': running[s.id],
+            'jar_missing': process.is_jar_missing(s),
             **(details.get(s.id) or {}),
         }
         for s in servers

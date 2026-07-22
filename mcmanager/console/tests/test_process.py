@@ -207,3 +207,29 @@ def test_start_raises_port_in_use_error_when_port_is_occupied(server, fake_java)
         assert process.is_running(server) is False
     finally:
         blocking_socket.close()
+
+
+@pytest.mark.django_db
+def test_is_jar_missing_returns_false_when_jar_file_exists(server, fake_java):
+    assert process.is_jar_missing(server) is False
+
+
+@pytest.mark.django_db
+def test_is_jar_missing_returns_true_when_jar_file_deleted(settings, server, fake_java):
+    jar_path = settings.SERVERS_DIR / f'server_{server.id}' / server.jar
+    jar_path.unlink()
+    assert process.is_jar_missing(server) is True
+
+
+@pytest.mark.django_db
+def test_is_jar_missing_returns_true_when_server_has_no_jar_assigned(server_type):
+    unprovisioned = Server.objects.create(name="Unprovisioned", jar_template="paper.jar", type=server_type)
+    assert process.is_jar_missing(unprovisioned) is True
+
+
+@pytest.mark.django_db
+def test_start_raises_jar_missing_error_when_jar_file_deleted(settings, server, fake_java):
+    jar_path = settings.SERVERS_DIR / f'server_{server.id}' / server.jar
+    jar_path.unlink()
+    with pytest.raises(process.JarMissingError):
+        process.start(server)

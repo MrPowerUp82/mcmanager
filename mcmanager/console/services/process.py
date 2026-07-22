@@ -35,6 +35,10 @@ class PortInUseError(Exception):
     by something else on this machine."""
 
 
+class JarMissingError(Exception):
+    """Raised by start() when the server's configured jar file is missing from disk."""
+
+
 def _state_path(server):
     return settings.RUN_DIR / f'server_{server.id}.json'
 
@@ -91,11 +95,24 @@ def _check_port_available(port):
             raise PortInUseError(f'Port {port} is already in use') from exc
 
 
+def _jar_path(server):
+    return settings.SERVERS_DIR / f'server_{server.id}' / server.jar
+
+
+def is_jar_missing(server):
+    if not server.jar:
+        return True
+    return not _jar_path(server).exists()
+
+
 def start(server):
     if is_running(server):
         raise AlreadyRunningError(f'Server {server.id} is already running')
 
     _check_port_available(server.port)
+
+    if is_jar_missing(server):
+        raise JarMissingError(f'Jar file missing for server {server.id}: {_jar_path(server)}')
 
     server_dir = settings.SERVERS_DIR / f'server_{server.id}'
     cmd = [

@@ -83,6 +83,15 @@ def test_rcon_failure_marks_only_players_unavailable_stats_still_reported(runnin
 
 
 @pytest.mark.django_db
+def test_stopped_server_with_no_jar_reports_jar_missing_true(stopped_server):
+    with patch("mcmanager.console.services.dashboard.process.is_running", return_value=False):
+        result = dashboard.get_dashboard_data()
+
+    entry = result[0]
+    assert entry['jar_missing'] is True
+
+
+@pytest.mark.django_db
 def test_stats_failure_for_one_server_does_not_prevent_other_servers_reporting(server_type):
     broken = Server.objects.create(name="Broken", jar_template="paper.jar", port=25572, type=server_type)
     healthy = Server.objects.create(name="Healthy", jar_template="paper.jar", port=25573, type=server_type)

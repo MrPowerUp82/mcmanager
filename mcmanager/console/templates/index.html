@@ -63,9 +63,14 @@
             }
 
             function renderCard(entry) {
-                const statusBadge = entry.running
-                    ? '<span class="text-green-600 font-bold">ON</span>'
-                    : '<span class="text-red-600 font-bold">OFF</span>';
+                let statusBadge;
+                if (entry.jar_missing) {
+                    statusBadge = '<span class="text-yellow-600 font-bold">QUEBRADO</span>';
+                } else if (entry.running) {
+                    statusBadge = '<span class="text-green-600 font-bold">ON</span>';
+                } else {
+                    statusBadge = '<span class="text-red-600 font-bold">OFF</span>';
+                }
 
                 let statsHtml = '';
                 if (entry.running) {
@@ -79,7 +84,7 @@
                     `;
                 }
 
-                const startBtn = entry.running ? '' : `
+                const startBtn = (entry.running || entry.jar_missing) ? '' : `
                     <button onclick="startServer(${entry.id})"
                             class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded mr-2">
                         Start
