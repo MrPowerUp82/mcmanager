@@ -9,6 +9,7 @@ urlpatterns = [
     path('force_stop_server/<int:id>',
          views.force_stop_server, name='force_stop_server'),
     path('view_logs/<int:id>', views.view_logs, name='view_logs'),
+    path('launch_output/<int:id>', views.launch_output, name='launch_output'),
     path('send_command/<int:id>', views.send_command, name='send_command'),
     path('get_server_stats/<int:id>', views.get_server_stats, name='get_server_stats'),
     path('jars/', views_jars.jars_page, name='jars_page'),

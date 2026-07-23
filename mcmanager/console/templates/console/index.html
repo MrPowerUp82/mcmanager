@@ -42,6 +42,10 @@
                         class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2">
                     View Logs
                 </button>
+                <button onclick="viewLaunchOutput()"
+                        class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded ml-2">
+                    Ver saída de erro
+                </button>
                 <!-- <button onclick="get_stats()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Ver Estatísticas</button> -->
             </div>
             <form id="command-form"
@@ -60,6 +64,10 @@
             <div id="result" class="mb-4"></div>
             <div id="logs"
                  class="bg-white p-4 border rounded shadow-md overflow-y-auto overflow-x-hidden"
+                 style="white-space: pre-wrap;
+                        max-height: 400px"></div>
+            <div id="launch-output"
+                 class="bg-white p-4 border rounded shadow-md overflow-y-auto overflow-x-hidden mt-2"
                  style="white-space: pre-wrap;
                         max-height: 400px"></div>
             <div id="stats" class="mt-4"></div>
@@ -219,6 +227,19 @@
                     })
                     .finally(() => {
                         logFetchInFlight = false;
+                    });
+            }
+
+            function viewLaunchOutput() {
+                fetch("{% url 'launch_output' id=server.id %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        const panel = document.getElementById('launch-output');
+                        if (data.status === 'success') {
+                            panel.textContent = data.output;
+                        } else {
+                            panel.textContent = data.message;
+                        }
                     });
             }
 

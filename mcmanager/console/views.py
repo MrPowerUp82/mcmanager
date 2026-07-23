@@ -95,6 +95,15 @@ def view_logs(request, id):
 
 
 @staff_member_required
+def launch_output(request, id):
+    server = Server.objects.get(id=id)
+    output = process.read_launch_output(server)
+    if output is None:
+        return json_error('No launch output captured yet', status=404)
+    return JsonResponse({'status': 'success', 'output': output})
+
+
+@staff_member_required
 @require_POST
 def send_command(request, id):
     server = Server.objects.get(id=id)
