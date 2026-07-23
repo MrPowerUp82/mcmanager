@@ -12,3 +12,4 @@ build/
 *.egg-info/
 staticfiles/
 db.sqlite*
+run/
