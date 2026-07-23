@@ -105,6 +105,13 @@ def is_jar_missing(server):
     return not _jar_path(server).exists()
 
 
+def read_launch_output(server):
+    path = settings.SERVERS_DIR / f'server_{server.id}' / 'logs' / 'last_start_output.log'
+    if not path.exists():
+        return None
+    return path.read_text(encoding='utf-8', errors='replace')
+
+
 def start(server):
     if is_running(server):
         raise AlreadyRunningError(f'Server {server.id} is already running')
@@ -115,6 +122,10 @@ def start(server):
         raise JarMissingError(f'Jar file missing for server {server.id}: {_jar_path(server)}')
 
     server_dir = settings.SERVERS_DIR / f'server_{server.id}'
+    logs_dir = server_dir / 'logs'
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    launch_output_path = logs_dir / 'last_start_output.log'
+
     cmd = [
         settings.JAVA_BIN_PATH,
         f'-Xms{server.memory_limit}M',
@@ -122,16 +133,21 @@ def start(server):
         '-jar', server.jar,
         'nogui',
     ]
-    kwargs = {'cwd': str(server_dir), 'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
-    if os.name == 'posix':
-        kwargs['start_new_session'] = True
-    else:
-        kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+    with launch_output_path.open('wb') as launch_output_file:
+        kwargs = {
+            'cwd': str(server_dir),
+            'stdout': launch_output_file,
+            'stderr': subprocess.STDOUT,
+        }
+        if os.name == 'posix':
+            kwargs['start_new_session'] = True
+        else:
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
 
-    try:
-        proc = subprocess.Popen(cmd, **kwargs)
-    except FileNotFoundError as exc:
-        raise JavaNotFoundError(f'Java binary not found: {settings.JAVA_BIN_PATH}') from exc
+        try:
+            proc = subprocess.Popen(cmd, **kwargs)
+        except FileNotFoundError as exc:
+            raise JavaNotFoundError(f'Java binary not found: {settings.JAVA_BIN_PATH}') from exc
 
     _write_state(server, proc.pid)
 

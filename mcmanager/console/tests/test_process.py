@@ -1,6 +1,7 @@
 import itertools
 import os
 import socket
+import stat
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -233,3 +234,77 @@ def test_start_raises_jar_missing_error_when_jar_file_deleted(settings, server, 
     jar_path.unlink()
     with pytest.raises(process.JarMissingError):
         process.start(server)
+
+
+def _create_crashing_binary(tmp_path):
+    """A fake `java` binary that writes a recognizable message to stderr and
+    exits with a non-zero code immediately, standing in for a real JVM crash
+    (e.g. UnsupportedClassVersionError) without needing a real Java runtime."""
+    if os.name == "posix":
+        wrapper = tmp_path / "crashing_java"
+        wrapper.write_text(
+            '#!/bin/sh\necho "FAKE JAVA ERROR: test crash message" >&2\nexit 1\n',
+            encoding="utf-8",
+        )
+        wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    else:
+        wrapper = tmp_path / "crashing_java.bat"
+        wrapper.write_text(
+            "@echo off\r\necho FAKE JAVA ERROR: test crash message 1>&2\r\nexit /b 1\r\n",
+            encoding="utf-8",
+        )
+    return wrapper
+
+
+@pytest.mark.django_db
+def test_start_creates_logs_directory_if_missing(settings, server, fake_java):
+    server_dir = settings.SERVERS_DIR / f"server_{server.id}"
+    logs_dir = server_dir / "logs"
+    assert not logs_dir.exists()
+    try:
+        process.start(server)
+        assert logs_dir.exists()
+    finally:
+        process.force_stop(server)
+
+
+@pytest.mark.django_db
+def test_read_launch_output_returns_none_when_never_started(server):
+    assert process.read_launch_output(server) is None
+
+
+@pytest.mark.django_db
+def test_start_captures_crash_output_to_file(settings, server, tmp_path):
+    settings.JAVA_BIN_PATH = str(_create_crashing_binary(tmp_path))
+    process.start(server)
+    deadline = time.time() + 3
+    output = None
+    while time.time() < deadline:
+        output = process.read_launch_output(server)
+        if output and "FAKE JAVA ERROR" in output:
+            break
+        time.sleep(0.1)
+    assert output is not None
+    assert "FAKE JAVA ERROR: test crash message" in output
+
+
+@pytest.mark.django_db
+def test_start_overwrites_previous_launch_output(settings, server, tmp_path):
+    settings.JAVA_BIN_PATH = str(_create_crashing_binary(tmp_path))
+    process.start(server)
+    deadline = time.time() + 3
+    while time.time() < deadline:
+        output = process.read_launch_output(server)
+        if output and "FAKE JAVA ERROR" in output:
+            break
+        time.sleep(0.1)
+
+    process.start(server)
+    deadline = time.time() + 3
+    output = None
+    while time.time() < deadline:
+        output = process.read_launch_output(server)
+        if output and output.count("FAKE JAVA ERROR") >= 1:
+            break
+        time.sleep(0.1)
+    assert output.count("FAKE JAVA ERROR: test crash message") == 1
